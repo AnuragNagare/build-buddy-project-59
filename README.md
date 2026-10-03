@@ -1,29 +1,24 @@
-# Welcome to your Lovable project
+# WorkSpot
 
-This project was built with [Lovable](https://lovable.dev).
+An India-first responsive café workspace booking prototype built with TanStack Start, React, TypeScript and Tailwind CSS.
 
-## Build with Lovable
-
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+## Run locally
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+bun install
+bun run dev
 ```
 
-## Built with
+## Pages
 
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
+- `/` landing and location search
+- `/explore` café map and results
+- `/cafes/:slug` café details and seat selection
+- `/checkout` mock payment
+- `/booking/:id/confirmed` booking confirmation
+- `/account/bookings` customer bookings
+- `/how-it-works`, `/partners`, `/manager`
+
+## Production integration points
+
+Mock café data is isolated in `src/lib/workspot-data.ts`; browser-persisted booking state is in `src/lib/booking-store.tsx`. Replace these with phone OTP authentication, Postgres/PostGIS inventory, Razorpay payment intents and verified webhooks, maps/geocoding, and managed image storage for production.
