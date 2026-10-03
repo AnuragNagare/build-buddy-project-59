@@ -12,6 +12,6 @@ export function SeatGrid({ cafe, selected, onSelect }: { cafe: Cafe; selected: s
 export function PriceBreakdown({ cafe, duration }: { cafe: Cafe; duration: number }) {
   const subtotal = cafe.price * duration; const fee = Math.round(subtotal * 0.08); return <div className="space-y-3 text-sm"><div className="flex justify-between"><span>Seat · {duration} {duration === 1 ? "hour" : "hours"}</span><span>₹{subtotal}</span></div><div className="flex justify-between"><span className="flex items-center gap-1">Booking fee <Info size={13} /></span><span>₹{fee}</span></div><div className="flex justify-between border-t border-border pt-3 text-base font-bold"><span>Total</span><span>₹{subtotal + fee}</span></div></div>;
 }
-export function BookingSummary({ cafe, date, time, duration, seatName }: { cafe: Cafe; date: string; time: string; duration: number; seatName?: string }) {
+export function BookingSummary({ cafe, date, time, duration, seatName }: { cafe: Cafe; date: string; time: string; duration: number; seatName?: string | undefined }) {
   return <div className="space-y-3"><div><p className="font-display text-lg font-bold">{cafe.name}</p><p className="text-sm text-muted-foreground">{cafe.area}</p></div><div className="flex items-center gap-2 text-sm"><Clock3 size={16} className="text-primary" />{date || "Choose a date"} · {time} IST · {duration}h</div>{seatName && <p className="rounded-lg bg-sky/15 px-3 py-2 text-sm font-bold">Seat: {seatName}</p>}</div>;
 }
