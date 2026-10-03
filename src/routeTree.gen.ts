@@ -12,6 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ExploreRouteImport } from './routes/explore'
+import { Route as HowItWorksRouteImport } from './routes/how-it-works'
+import { Route as PartnersRouteImport } from './routes/partners'
+import { Route as AccountBookingsRouteImport } from './routes/account.bookings'
 import { Route as CafesSlugRouteImport } from './routes/cafes.$slug'
 import { Route as BookingIdConfirmedRouteImport } from './routes/booking.$id.confirmed'
 
@@ -30,6 +33,21 @@ const ExploreRoute = ExploreRouteImport.update({
   path: '/explore',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HowItWorksRoute = HowItWorksRouteImport.update({
+  id: '/how-it-works',
+  path: '/how-it-works',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PartnersRoute = PartnersRouteImport.update({
+  id: '/partners',
+  path: '/partners',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountBookingsRoute = AccountBookingsRouteImport.update({
+  id: '/account/bookings',
+  path: '/account/bookings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CafesSlugRoute = CafesSlugRouteImport.update({
   id: '/cafes/$slug',
   path: '/cafes/$slug',
@@ -45,6 +63,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/checkout': typeof CheckoutRoute
   '/explore': typeof ExploreRoute
+  '/how-it-works': typeof HowItWorksRoute
+  '/partners': typeof PartnersRoute
+  '/account/bookings': typeof AccountBookingsRoute
   '/cafes/$slug': typeof CafesSlugRoute
   '/booking/$id/confirmed': typeof BookingIdConfirmedRoute
 }
@@ -52,6 +73,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/checkout': typeof CheckoutRoute
   '/explore': typeof ExploreRoute
+  '/how-it-works': typeof HowItWorksRoute
+  '/partners': typeof PartnersRoute
+  '/account/bookings': typeof AccountBookingsRoute
   '/cafes/$slug': typeof CafesSlugRoute
   '/booking/$id/confirmed': typeof BookingIdConfirmedRoute
 }
@@ -60,20 +84,41 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/checkout': typeof CheckoutRoute
   '/explore': typeof ExploreRoute
+  '/how-it-works': typeof HowItWorksRoute
+  '/partners': typeof PartnersRoute
+  '/account/bookings': typeof AccountBookingsRoute
   '/cafes/$slug': typeof CafesSlugRoute
   '/booking/$id/confirmed': typeof BookingIdConfirmedRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/checkout' | '/explore' | '/cafes/$slug' | '/booking/$id/confirmed'
+    | '/'
+    | '/checkout'
+    | '/explore'
+    | '/how-it-works'
+    | '/partners'
+    | '/account/bookings'
+    | '/cafes/$slug'
+    | '/booking/$id/confirmed'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/checkout' | '/explore' | '/cafes/$slug' | '/booking/$id/confirmed'
+  to:
+    | '/'
+    | '/checkout'
+    | '/explore'
+    | '/how-it-works'
+    | '/partners'
+    | '/account/bookings'
+    | '/cafes/$slug'
+    | '/booking/$id/confirmed'
   id:
     | '__root__'
     | '/'
     | '/checkout'
     | '/explore'
+    | '/how-it-works'
+    | '/partners'
+    | '/account/bookings'
     | '/cafes/$slug'
     | '/booking/$id/confirmed'
   fileRoutesById: FileRoutesById
@@ -82,6 +127,9 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CheckoutRoute: typeof CheckoutRoute
   ExploreRoute: typeof ExploreRoute
+  HowItWorksRoute: typeof HowItWorksRoute
+  PartnersRoute: typeof PartnersRoute
+  AccountBookingsRoute: typeof AccountBookingsRoute
   CafesSlugRoute: typeof CafesSlugRoute
   BookingIdConfirmedRoute: typeof BookingIdConfirmedRoute
 }
@@ -109,6 +157,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExploreRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/how-it-works': {
+      id: '/how-it-works'
+      path: '/how-it-works'
+      fullPath: '/how-it-works'
+      preLoaderRoute: typeof HowItWorksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/partners': {
+      id: '/partners'
+      path: '/partners'
+      fullPath: '/partners'
+      preLoaderRoute: typeof PartnersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account/bookings': {
+      id: '/account/bookings'
+      path: '/account/bookings'
+      fullPath: '/account/bookings'
+      preLoaderRoute: typeof AccountBookingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cafes/$slug': {
       id: '/cafes/$slug'
       path: '/cafes/$slug'
@@ -130,6 +199,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CheckoutRoute: CheckoutRoute,
   ExploreRoute: ExploreRoute,
+  HowItWorksRoute: HowItWorksRoute,
+  PartnersRoute: PartnersRoute,
+  AccountBookingsRoute: AccountBookingsRoute,
   CafesSlugRoute: CafesSlugRoute,
   BookingIdConfirmedRoute: BookingIdConfirmedRoute,
 }
