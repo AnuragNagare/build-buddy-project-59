@@ -16,7 +16,7 @@ export type Booking = BookingSelection & { id: string; status: "upcoming" | "pas
 
 const seatNames = ["Window 1", "Window 2", "Window 3", "Community 1", "Community 2", "Community 3", "Bar 1", "Bar 2", "Nook 1", "Nook 2"];
 const makeSeats = (offset = 0): Seat[] => seatNames.map((name, i) => ({
-  id: `s${i + 1}`, name, type: name.split(" ")[0], status: (i + offset) % 5 === 2 ? "unavailable" : (i + offset) % 7 === 4 ? "not-offered" : "available",
+  id: `s${i + 1}`, name, type: name.split(" ")[0] ?? "Seat", status: (i + offset) % 5 === 2 ? "unavailable" : (i + offset) % 7 === 4 ? "not-offered" : "available",
   x: 12 + (i % 3) * 31, y: 12 + Math.floor(i / 3) * 25,
 }));
 
@@ -29,6 +29,7 @@ export const cafes: Cafe[] = [
   { slug: "yellow-kettle", name: "The Yellow Kettle", area: "Dadar", address: "Shivaji Park, Dadar West, Mumbai", distance: 3.6, rating: 4.7, reviews: 112, price: 139, image: cafe2, amenities: ["Wi-Fi", "Power", "Food"], availability: "7 seats open", vibe: "Friendly & relaxed", description: "A friendly local favourite designed for productive mornings and easy afternoon meetings.", hours: "7:30 AM–8:00 PM IST", marker: { x: 42, y: 62 }, seats: makeSeats(5) },
 ];
 
-export const getCafe = (slug: string) => cafes.find((cafe) => cafe.slug === slug) ?? cafes[0];
+export const getCafe = (slug: string): Cafe => cafes.find((cafe) => cafe.slug === slug) ?? cafes[0] ?? fallbackCafe;
+const fallbackCafe: Cafe = { slug: "workspot", name: "WorkSpot Café", area: "Mumbai", address: "Mumbai", distance: 0, rating: 4.8, reviews: 0, price: 149, image: cafe1, amenities: ["Wi-Fi", "Power"], availability: "Seats available", vibe: "Focused", description: "A work-friendly café in Mumbai.", hours: "9:00 AM–6:00 PM IST", marker: { x: 50, y: 50 }, seats: makeSeats() };
 export const formatDate = (value: string) => new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short" }).format(new Date(`${value}T12:00:00`));
 export const today = () => new Date().toISOString().slice(0, 10);

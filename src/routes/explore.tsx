@@ -7,11 +7,11 @@ import { cafes } from "@/lib/workspot-data";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/explore")({
-  validateSearch: (s: Record<string, unknown>) => ({ q: typeof s.q === "string" ? s.q : "" }),
+  validateSearch: (s: Record<string, unknown>) => ({ q: typeof s["q"] === "string" ? s["q"] : undefined }),
   head: () => ({ meta: [{ title: "Explore cafés — WorkSpot" }, { name: "description", content: "Browse work-friendly cafés and available seats across Mumbai." }, { property: "og:title", content: "Explore Mumbai WorkSpots" }, { property: "og:description", content: "Compare nearby café workspaces, amenities and hourly prices." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary_large_image" }] }), component: Explore,
 });
 function Explore() {
-  const { q } = Route.useSearch(); const [query,setQuery]=useState(q); const [radius,setRadius]=useState(3); const [selected,setSelected]=useState(cafes[0].slug); const [mobileView,setMobileView]=useState<"list"|"map">("list"); const [filters,setFilters]=useState<string[]>([]);
+  const { q } = Route.useSearch(); const [query,setQuery]=useState(q ?? ""); const [radius,setRadius]=useState(3); const [selected,setSelected]=useState(cafes[0]?.slug ?? ""); const [mobileView,setMobileView]=useState<"list"|"map">("list"); const [filters,setFilters]=useState<string[]>([]);
   const shown=useMemo(()=>cafes.filter(c=>(!query||`${c.name} ${c.area}`.toLowerCase().includes(query.toLowerCase()))&&c.distance<=radius&&filters.every(f=>c.amenities.includes(f as never))),[query,radius,filters]);
   const toggle=(f:string)=>setFilters(v=>v.includes(f)?v.filter(x=>x!==f):[...v,f]);
   return <div className="mx-auto max-w-[1500px] px-4 py-6"><div className="grid gap-3 lg:grid-cols-[1fr_auto_auto]"><label className="flex min-w-0 items-center gap-2 rounded-lg border-2 border-foreground bg-card px-4"><Search size={19}/><span className="sr-only">Search areas or cafés</span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search Bandra, Andheri, Lower Parel..." className="min-h-12 min-w-0 flex-1 bg-transparent outline-none" /></label><select value={radius} onChange={e=>setRadius(Number(e.target.value))} aria-label="Search radius" className="min-h-12 rounded-lg border-2 border-foreground bg-card px-4 font-bold">{[1,3,5,10].map(n=><option key={n} value={n}>{n} km radius</option>)}</select><label className="flex items-center gap-2 rounded-lg border-2 border-foreground bg-card px-4"><span className="text-sm font-bold">Date</span><input type="date" className="bg-transparent" /></label></div>
