@@ -10,11 +10,19 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ExploreRouteImport } from './routes/explore'
+import { Route as CafesSlugRouteImport } from './routes/cafes.$slug'
+import { Route as BookingIdConfirmedRouteImport } from './routes/booking.$id.confirmed'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExploreRoute = ExploreRouteImport.update({
@@ -22,31 +30,60 @@ const ExploreRoute = ExploreRouteImport.update({
   path: '/explore',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CafesSlugRoute = CafesSlugRouteImport.update({
+  id: '/cafes/$slug',
+  path: '/cafes/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BookingIdConfirmedRoute = BookingIdConfirmedRouteImport.update({
+  id: '/booking/$id/confirmed',
+  path: '/booking/$id/confirmed',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/checkout': typeof CheckoutRoute
   '/explore': typeof ExploreRoute
+  '/cafes/$slug': typeof CafesSlugRoute
+  '/booking/$id/confirmed': typeof BookingIdConfirmedRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/checkout': typeof CheckoutRoute
   '/explore': typeof ExploreRoute
+  '/cafes/$slug': typeof CafesSlugRoute
+  '/booking/$id/confirmed': typeof BookingIdConfirmedRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/checkout': typeof CheckoutRoute
   '/explore': typeof ExploreRoute
+  '/cafes/$slug': typeof CafesSlugRoute
+  '/booking/$id/confirmed': typeof BookingIdConfirmedRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/explore'
+  fullPaths:
+    '/' | '/checkout' | '/explore' | '/cafes/$slug' | '/booking/$id/confirmed'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/explore'
-  id: '__root__' | '/' | '/explore'
+  to: '/' | '/checkout' | '/explore' | '/cafes/$slug' | '/booking/$id/confirmed'
+  id:
+    | '__root__'
+    | '/'
+    | '/checkout'
+    | '/explore'
+    | '/cafes/$slug'
+    | '/booking/$id/confirmed'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CheckoutRoute: typeof CheckoutRoute
   ExploreRoute: typeof ExploreRoute
+  CafesSlugRoute: typeof CafesSlugRoute
+  BookingIdConfirmedRoute: typeof BookingIdConfirmedRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,6 +95,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/explore': {
       id: '/explore'
       path: '/explore'
@@ -65,12 +109,29 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ExploreRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cafes/$slug': {
+      id: '/cafes/$slug'
+      path: '/cafes/$slug'
+      fullPath: '/cafes/$slug'
+      preLoaderRoute: typeof CafesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/booking/$id/confirmed': {
+      id: '/booking/$id/confirmed'
+      path: '/booking/$id/confirmed'
+      fullPath: '/booking/$id/confirmed'
+      preLoaderRoute: typeof BookingIdConfirmedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CheckoutRoute: CheckoutRoute,
   ExploreRoute: ExploreRoute,
+  CafesSlugRoute: CafesSlugRoute,
+  BookingIdConfirmedRoute: BookingIdConfirmedRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
