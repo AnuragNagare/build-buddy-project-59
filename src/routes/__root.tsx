@@ -12,6 +12,8 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { AuthProvider } from "../lib/auth-store";
+import { AdminAuthProvider } from "../lib/admin-auth-store";
 import { BookingProvider } from "../lib/booking-store";
 import { AppShell } from "../components/workspot-shell";
 
@@ -124,6 +126,17 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
-    <QueryClientProvider client={queryClient}><BookingProvider><AppShell><Outlet /></AppShell></BookingProvider></QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <AdminAuthProvider>
+          <BookingProvider>
+            <AppShell>
+              <Outlet />
+            </AppShell>
+            <div id="recaptcha-container" />
+          </BookingProvider>
+        </AdminAuthProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }

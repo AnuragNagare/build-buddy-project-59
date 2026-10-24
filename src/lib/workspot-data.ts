@@ -6,13 +6,65 @@ import cafe4 from "@/assets/workspot-cafe-4.jpg";
 export type Amenity = "Wi-Fi" | "Power" | "AC" | "Quiet" | "Food" | "Ergonomic";
 export type SeatStatus = "available" | "unavailable" | "not-offered";
 export type Seat = { id: string; name: string; type: string; status: SeatStatus; x: number; y: number };
+export type CafeReview = { id: string; author: string; rating: number; date: string; comment: string };
 export type Cafe = {
   slug: string; name: string; area: string; address: string; distance: number; rating: number;
   reviews: number; price: number; image: string; amenities: Amenity[]; availability: string;
   vibe: string; description: string; hours: string; marker: { x: number; y: number }; seats: Seat[];
+  reviewsList?: CafeReview[];
+  tier?: "free" | "pro";
 };
 export type BookingSelection = { cafeSlug: string; date: string; time: string; duration: number; seatId: string };
-export type Booking = BookingSelection & { id: string; status: "upcoming" | "past" | "cancelled"; createdAt: string };
+export type Booking = BookingSelection & {
+  id: string;
+  status: "upcoming" | "past" | "cancelled";
+  createdAt: string;
+  userId?: string;
+  userPhone?: string;
+  totalPrice?: number;
+  paymentMethod?: string;
+  seatName?: string;
+};
+
+export type VendorPlan = "free" | "pro";
+
+export type VendorApplication = {
+  id: string;
+  cafeName: string;
+  area: string;
+  address: string;
+  contactName: string;
+  contactPhone: string;
+  contactEmail: string;
+  price: number;
+  hours: string;
+  vibe: string;
+  description: string;
+  amenities: Amenity[];
+  seatsCount: number;
+  coverImage: string;
+  galleryImages?: string[];
+  videoUrl?: string;
+  status: "pending" | "approved" | "rejected";
+  submittedAt: string;
+  notes?: string;
+  plan: VendorPlan;
+  paidAmount?: number;
+  paymentStatus?: "unpaid" | "paid";
+  paymentMethod?: string;
+};
+
+export type PendingReviewSubmission = {
+  id: string;
+  cafeSlug: string;
+  cafeName: string;
+  author: string;
+  rating: number;
+  date: string;
+  comment: string;
+  status: "pending" | "approved" | "rejected";
+  submittedAt: string;
+};
 
 const seatNames = ["Window 1", "Window 2", "Window 3", "Community 1", "Community 2", "Community 3", "Bar 1", "Bar 2", "Nook 1", "Nook 2"];
 const makeSeats = (offset = 0): Seat[] => seatNames.map((name, i) => ({
@@ -20,13 +72,19 @@ const makeSeats = (offset = 0): Seat[] => seatNames.map((name, i) => ({
   x: 12 + (i % 3) * 31, y: 12 + Math.floor(i / 3) * 25,
 }));
 
+const makeReviews = (name: string): CafeReview[] => [
+  { id: "r1", author: "Aanya Shah", rating: 5, date: "2026-10-12", comment: `Loved the quiet window desk at ${name}. Super fast Wi-Fi and power outlets right by the seat.` },
+  { id: "r2", author: "Rohan Khanna", rating: 4, date: "2026-10-09", comment: "Great artisanal coffee and polite staff. Perfect spot for focused morning work sprints." },
+  { id: "r3", author: "Pooja Nair", rating: 5, date: "2026-09-28", comment: "The booking process was seamless. My reserved seat was ready when I reached." }
+];
+
 export const cafes: Cafe[] = [
-  { slug: "blue-door-coffee", name: "Blue Door Coffee", area: "Bandra West", address: "Chapel Road, Bandra West, Mumbai", distance: 0.8, rating: 4.8, reviews: 126, price: 149, image: cafe1, amenities: ["Wi-Fi", "Power", "AC", "Food"], availability: "6 seats open", vibe: "Bright & social", description: "A sunlit neighbourhood workspace with long window counters, steady Wi-Fi and excellent coffee within arm’s reach.", hours: "8:00 AM–8:00 PM IST", marker: { x: 22, y: 53 }, seats: makeSeats(0) },
-  { slug: "monsoon-desk-cafe", name: "Monsoon Desk Café", area: "Lower Parel", address: "Senapati Bapat Marg, Lower Parel, Mumbai", distance: 2.1, rating: 4.7, reviews: 98, price: 179, image: cafe4, amenities: ["Wi-Fi", "Power", "Quiet", "Ergonomic"], availability: "4 seats open", vibe: "Focused & quiet", description: "Lofty ceilings, dedicated work tables and a low-volume soundtrack make deep-work sessions feel effortless.", hours: "9:00 AM–7:00 PM IST", marker: { x: 49, y: 41 }, seats: makeSeats(1) },
-  { slug: "citrus-corner", name: "Citrus Corner", area: "Andheri West", address: "Veera Desai Road, Andheri West, Mumbai", distance: 2.8, rating: 4.6, reviews: 84, price: 129, image: cafe2, amenities: ["Wi-Fi", "Power", "AC", "Food"], availability: "8 seats open", vibe: "Warm & lively", description: "A cheerful all-day café with generous community tables and plenty of plug points for quick work sprints.", hours: "8:30 AM–9:00 PM IST", marker: { x: 31, y: 22 }, seats: makeSeats(2) },
-  { slug: "paper-plane-cafe", name: "Paper Plane Café", area: "Powai", address: "Central Avenue, Powai, Mumbai", distance: 4.4, rating: 4.9, reviews: 143, price: 199, image: cafe3, amenities: ["Wi-Fi", "Power", "Quiet", "Food", "Ergonomic"], availability: "3 seats open", vibe: "Calm & scenic", description: "Lake views, quiet corners and thoughtfully spaced desks for calls, writing and long creative sessions.", hours: "8:00 AM–8:30 PM IST", marker: { x: 72, y: 18 }, seats: makeSeats(3) },
-  { slug: "studio-bean", name: "Studio Bean", area: "Fort", address: "Kala Ghoda, Fort, Mumbai", distance: 5.7, rating: 4.5, reviews: 67, price: 159, image: cafe1, amenities: ["Wi-Fi", "Power", "AC", "Quiet"], availability: "5 seats open", vibe: "Creative & calm", description: "A compact art-district spot with reliable connectivity, considered lighting and tucked-away desks.", hours: "9:00 AM–7:30 PM IST", marker: { x: 67, y: 72 }, seats: makeSeats(4) },
-  { slug: "yellow-kettle", name: "The Yellow Kettle", area: "Dadar", address: "Shivaji Park, Dadar West, Mumbai", distance: 3.6, rating: 4.7, reviews: 112, price: 139, image: cafe2, amenities: ["Wi-Fi", "Power", "Food"], availability: "7 seats open", vibe: "Friendly & relaxed", description: "A friendly local favourite designed for productive mornings and easy afternoon meetings.", hours: "7:30 AM–8:00 PM IST", marker: { x: 42, y: 62 }, seats: makeSeats(5) },
+  { slug: "blue-door-coffee", name: "Blue Door Coffee", area: "Bandra West", address: "Chapel Road, Bandra West, Mumbai", distance: 0.8, rating: 4.8, reviews: 126, price: 149, image: cafe1, amenities: ["Wi-Fi", "Power", "AC", "Food"], availability: "6 seats open", vibe: "Bright & social", description: "A sunlit neighbourhood workspace with long window counters, steady Wi-Fi and excellent coffee within arm’s reach.", hours: "8:00 AM–8:00 PM IST", marker: { x: 22, y: 53 }, seats: makeSeats(0), reviewsList: makeReviews("Blue Door Coffee") },
+  { slug: "monsoon-desk-cafe", name: "Monsoon Desk Café", area: "Lower Parel", address: "Senapati Bapat Marg, Lower Parel, Mumbai", distance: 2.1, rating: 4.7, reviews: 98, price: 179, image: cafe4, amenities: ["Wi-Fi", "Power", "Quiet", "Ergonomic"], availability: "4 seats open", vibe: "Focused & quiet", description: "Lofty ceilings, dedicated work tables and a low-volume soundtrack make deep-work sessions feel effortless.", hours: "9:00 AM–7:00 PM IST", marker: { x: 49, y: 41 }, seats: makeSeats(1), reviewsList: makeReviews("Monsoon Desk Café") },
+  { slug: "citrus-corner", name: "Citrus Corner", area: "Andheri West", address: "Veera Desai Road, Andheri West, Mumbai", distance: 2.8, rating: 4.6, reviews: 84, price: 129, image: cafe2, amenities: ["Wi-Fi", "Power", "AC", "Food"], availability: "8 seats open", vibe: "Warm & lively", description: "A cheerful all-day café with generous community tables and plenty of plug points for quick work sprints.", hours: "8:30 AM–9:00 PM IST", marker: { x: 31, y: 22 }, seats: makeSeats(2), reviewsList: makeReviews("Citrus Corner") },
+  { slug: "paper-plane-cafe", name: "Paper Plane Café", area: "Powai", address: "Central Avenue, Powai, Mumbai", distance: 4.4, rating: 4.9, reviews: 143, price: 199, image: cafe3, amenities: ["Wi-Fi", "Power", "Quiet", "Food", "Ergonomic"], availability: "3 seats open", vibe: "Calm & scenic", description: "Lake views, quiet corners and thoughtfully spaced desks for calls, writing and long creative sessions.", hours: "8:00 AM–8:30 PM IST", marker: { x: 72, y: 18 }, seats: makeSeats(3), reviewsList: makeReviews("Paper Plane Café") },
+  { slug: "studio-bean", name: "Studio Bean", area: "Fort", address: "Kala Ghoda, Fort, Mumbai", distance: 5.7, rating: 4.5, reviews: 67, price: 159, image: cafe1, amenities: ["Wi-Fi", "Power", "AC", "Quiet"], availability: "5 seats open", vibe: "Creative & calm", description: "A compact art-district spot with reliable connectivity, considered lighting and tucked-away desks.", hours: "9:00 AM–7:30 PM IST", marker: { x: 67, y: 72 }, seats: makeSeats(4), reviewsList: makeReviews("Studio Bean") },
+  { slug: "yellow-kettle", name: "The Yellow Kettle", area: "Dadar", address: "Shivaji Park, Dadar West, Mumbai", distance: 3.6, rating: 4.7, reviews: 112, price: 139, image: cafe2, amenities: ["Wi-Fi", "Power", "Food"], availability: "7 seats open", vibe: "Friendly & relaxed", description: "A friendly local favourite designed for productive mornings and easy afternoon meetings.", hours: "7:30 AM–8:00 PM IST", marker: { x: 42, y: 62 }, seats: makeSeats(5), reviewsList: makeReviews("The Yellow Kettle") },
 ];
 
 export const getCafe = (slug: string): Cafe => cafes.find((cafe) => cafe.slug === slug) ?? cafes[0] ?? fallbackCafe;
