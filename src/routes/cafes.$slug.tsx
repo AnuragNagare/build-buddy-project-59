@@ -220,12 +220,12 @@ function CafeDetail() {
                 />
               </div>
               <PriceBreakdown cafe={cafe} duration={duration} />
-              <Button onClick={continueBooking} disabled={!seat} className="mt-5 w-full">
-                Continue to book
+              <Button onClick={continueBooking} disabled={!seat} className="mt-5 w-full font-bold">
+                Reserve seat (Pay at café)
               </Button>
               <p className="mt-3 flex justify-center gap-1 text-xs text-muted-foreground">
                 <ShieldCheck size={14} />
-                Secure checkout
+                Free reservation · Pay on arrival
               </p>
             </div>
           </aside>
@@ -240,8 +240,8 @@ function CafeDetail() {
               {chosen ? `${chosen.name} · ${time} IST` : "Select a seat above"}
             </p>
           </div>
-          <Button disabled={!seat} onClick={continueBooking}>
-            Continue
+          <Button disabled={!seat} onClick={continueBooking} className="font-bold">
+            Reserve
           </Button>
         </div>
       </div>

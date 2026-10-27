@@ -23,6 +23,7 @@ export type Booking = BookingSelection & {
   userPhone?: string;
   totalPrice?: number;
   paymentMethod?: string;
+  paymentStatus?: "free_online" | "pay_at_venue" | "paid";
   seatName?: string;
 };
 
@@ -72,22 +73,174 @@ const makeSeats = (offset = 0): Seat[] => seatNames.map((name, i) => ({
   x: 12 + (i % 3) * 31, y: 12 + Math.floor(i / 3) * 25,
 }));
 
+export const today = () => new Date().toISOString().slice(0, 10);
+
+const getDaysAgo = (days: number): string => {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+};
+
 const makeReviews = (name: string): CafeReview[] => [
-  { id: "r1", author: "Aanya Shah", rating: 5, date: "2026-10-12", comment: `Loved the quiet window desk at ${name}. Super fast Wi-Fi and power outlets right by the seat.` },
-  { id: "r2", author: "Rohan Khanna", rating: 4, date: "2026-10-09", comment: "Great artisanal coffee and polite staff. Perfect spot for focused morning work sprints." },
-  { id: "r3", author: "Pooja Nair", rating: 5, date: "2026-09-28", comment: "The booking process was seamless. My reserved seat was ready when I reached." }
+  { id: "r1", author: "Aanya Shah", rating: 5, date: getDaysAgo(2), comment: `Loved the quiet window desk at ${name}. Super fast Wi-Fi and power outlets right by the seat.` },
+  { id: "r2", author: "Rohan Khanna", rating: 5, date: getDaysAgo(5), comment: "Great artisanal coffee and polite staff. Perfect spot for focused morning work sprints." },
+  { id: "r3", author: "Pooja Nair", rating: 4, date: getDaysAgo(12), comment: "The booking process was seamless. My reserved seat was ready when I reached and paying at the counter was super easy." }
 ];
 
 export const cafes: Cafe[] = [
-  { slug: "blue-door-coffee", name: "Blue Door Coffee", area: "Bandra West", address: "Chapel Road, Bandra West, Mumbai", distance: 0.8, rating: 4.8, reviews: 126, price: 149, image: cafe1, amenities: ["Wi-Fi", "Power", "AC", "Food"], availability: "6 seats open", vibe: "Bright & social", description: "A sunlit neighbourhood workspace with long window counters, steady Wi-Fi and excellent coffee within arm’s reach.", hours: "8:00 AM–8:00 PM IST", marker: { x: 22, y: 53 }, seats: makeSeats(0), reviewsList: makeReviews("Blue Door Coffee") },
-  { slug: "monsoon-desk-cafe", name: "Monsoon Desk Café", area: "Lower Parel", address: "Senapati Bapat Marg, Lower Parel, Mumbai", distance: 2.1, rating: 4.7, reviews: 98, price: 179, image: cafe4, amenities: ["Wi-Fi", "Power", "Quiet", "Ergonomic"], availability: "4 seats open", vibe: "Focused & quiet", description: "Lofty ceilings, dedicated work tables and a low-volume soundtrack make deep-work sessions feel effortless.", hours: "9:00 AM–7:00 PM IST", marker: { x: 49, y: 41 }, seats: makeSeats(1), reviewsList: makeReviews("Monsoon Desk Café") },
-  { slug: "citrus-corner", name: "Citrus Corner", area: "Andheri West", address: "Veera Desai Road, Andheri West, Mumbai", distance: 2.8, rating: 4.6, reviews: 84, price: 129, image: cafe2, amenities: ["Wi-Fi", "Power", "AC", "Food"], availability: "8 seats open", vibe: "Warm & lively", description: "A cheerful all-day café with generous community tables and plenty of plug points for quick work sprints.", hours: "8:30 AM–9:00 PM IST", marker: { x: 31, y: 22 }, seats: makeSeats(2), reviewsList: makeReviews("Citrus Corner") },
-  { slug: "paper-plane-cafe", name: "Paper Plane Café", area: "Powai", address: "Central Avenue, Powai, Mumbai", distance: 4.4, rating: 4.9, reviews: 143, price: 199, image: cafe3, amenities: ["Wi-Fi", "Power", "Quiet", "Food", "Ergonomic"], availability: "3 seats open", vibe: "Calm & scenic", description: "Lake views, quiet corners and thoughtfully spaced desks for calls, writing and long creative sessions.", hours: "8:00 AM–8:30 PM IST", marker: { x: 72, y: 18 }, seats: makeSeats(3), reviewsList: makeReviews("Paper Plane Café") },
-  { slug: "studio-bean", name: "Studio Bean", area: "Fort", address: "Kala Ghoda, Fort, Mumbai", distance: 5.7, rating: 4.5, reviews: 67, price: 159, image: cafe1, amenities: ["Wi-Fi", "Power", "AC", "Quiet"], availability: "5 seats open", vibe: "Creative & calm", description: "A compact art-district spot with reliable connectivity, considered lighting and tucked-away desks.", hours: "9:00 AM–7:30 PM IST", marker: { x: 67, y: 72 }, seats: makeSeats(4), reviewsList: makeReviews("Studio Bean") },
-  { slug: "yellow-kettle", name: "The Yellow Kettle", area: "Dadar", address: "Shivaji Park, Dadar West, Mumbai", distance: 3.6, rating: 4.7, reviews: 112, price: 139, image: cafe2, amenities: ["Wi-Fi", "Power", "Food"], availability: "7 seats open", vibe: "Friendly & relaxed", description: "A friendly local favourite designed for productive mornings and easy afternoon meetings.", hours: "7:30 AM–8:00 PM IST", marker: { x: 42, y: 62 }, seats: makeSeats(5), reviewsList: makeReviews("The Yellow Kettle") },
+  {
+    slug: "subko-coffee-bandra",
+    name: "Subko Coffee Craft House",
+    area: "Bandra West",
+    address: "Ranwar Village, Bandra West, Mumbai, Maharashtra 400050",
+    distance: 0.9,
+    rating: 4.9,
+    reviews: 342,
+    price: 189,
+    image: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1200&q=80",
+    amenities: ["Wi-Fi", "Power", "AC", "Food", "Ergonomic"],
+    availability: "5 seats open",
+    vibe: "Artisanal, vibrant & laptop-friendly",
+    description: "A restored heritage house in Ranwar Village with specialty single-origin pour-overs, dedicated work counters, and high-speed Wi-Fi.",
+    hours: "7:30 AM–10:00 PM IST",
+    marker: { x: 24, y: 54 },
+    seats: makeSeats(0),
+    reviewsList: makeReviews("Subko Coffee Craft House"),
+    tier: "pro"
+  },
+  {
+    slug: "blue-tokai-bandra",
+    name: "Blue Tokai Coffee Roasters",
+    area: "Bandra West",
+    address: "Perry Cross Rd, Pali Hill, Bandra West, Mumbai, Maharashtra 400050",
+    distance: 1.4,
+    rating: 4.8,
+    reviews: 289,
+    price: 159,
+    image: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=1200&q=80",
+    amenities: ["Wi-Fi", "Power", "AC", "Food", "Quiet"],
+    availability: "7 seats open",
+    vibe: "Focused, quiet & coffee-centric",
+    description: "Mumbai's go-to workspace for founders and creators. Ample power sockets, specialty roasts, and quiet natural lighting.",
+    hours: "7:00 AM–11:00 PM IST",
+    marker: { x: 26, y: 52 },
+    seats: makeSeats(1),
+    reviewsList: makeReviews("Blue Tokai Coffee Roasters"),
+    tier: "pro"
+  },
+  {
+    slug: "third-wave-coffee-khar",
+    name: "Third Wave Coffee",
+    area: "Khar West",
+    address: "Linking Road, Khar West, Mumbai, Maharashtra 400052",
+    distance: 2.1,
+    rating: 4.7,
+    reviews: 215,
+    price: 149,
+    image: "https://images.unsplash.com/photo-1521017432531-fbd92d768814?auto=format&fit=crop&w=1200&q=80",
+    amenities: ["Wi-Fi", "Power", "AC", "Food"],
+    availability: "6 seats open",
+    vibe: "Warm, energetic & productive",
+    description: "Spacious seating booths with dedicated plug points at every table, reliable high-speed mesh network, and cold brews on tap.",
+    hours: "8:00 AM–11:30 PM IST",
+    marker: { x: 28, y: 46 },
+    seats: makeSeats(2),
+    reviewsList: makeReviews("Third Wave Coffee")
+  },
+  {
+    slug: "kmc-mumbai-fort",
+    name: "KMC Mumbai",
+    area: "Kala Ghoda / Fort",
+    address: "Kitab Mahal, 1st Floor, D.N. Road, Fort, Mumbai, Maharashtra 400001",
+    distance: 5.4,
+    rating: 4.8,
+    reviews: 178,
+    price: 199,
+    image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80",
+    amenities: ["Wi-Fi", "Power", "AC", "Quiet", "Ergonomic", "Food"],
+    availability: "4 seats open",
+    vibe: "Sophisticated, calm & literary",
+    description: "Housed inside the iconic Kitab Mahal, KMC offers library-quiet zones, ergonomic seating, and creative cuisine for long workdays.",
+    hours: "10:00 AM–10:00 PM IST",
+    marker: { x: 68, y: 74 },
+    seats: makeSeats(3),
+    reviewsList: makeReviews("KMC Mumbai"),
+    tier: "pro"
+  },
+  {
+    slug: "kcroasters-chuim",
+    name: "KCROASTERS by Curators",
+    area: "Khar / Chuim Village",
+    address: "Chuim Village Road, Khar West, Mumbai, Maharashtra 400052",
+    distance: 2.3,
+    rating: 4.9,
+    reviews: 164,
+    price: 169,
+    image: "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?auto=format&fit=crop&w=1200&q=80",
+    amenities: ["Wi-Fi", "Power", "Quiet", "Food"],
+    availability: "5 seats open",
+    vibe: "Intimate, quiet & artisan",
+    description: "Tucked inside charming Chuim Village, an intimate roastery with sunlit nooks, whisper-quiet atmosphere, and handcrafted coffees.",
+    hours: "8:00 AM–9:00 PM IST",
+    marker: { x: 30, y: 48 },
+    seats: makeSeats(4),
+    reviewsList: makeReviews("KCROASTERS by Curators")
+  },
+  {
+    slug: "doolally-taproom-khar",
+    name: "Doolally Taproom",
+    area: "Khar West",
+    address: "1st Floor, Raj Kutir, 33rd Road, Khar West, Mumbai, Maharashtra 400052",
+    distance: 1.8,
+    rating: 4.6,
+    reviews: 310,
+    price: 139,
+    image: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
+    amenities: ["Wi-Fi", "Power", "AC", "Food", "Ergonomic"],
+    availability: "8 seats open",
+    vibe: "Pet-friendly, relaxed & spacious",
+    description: "A legendary co-working favourite with 100 Mbps Wi-Fi, abundant plugs, pet-friendly workspace, and hearty breakfast options.",
+    hours: "8:00 AM–1:00 AM IST",
+    marker: { x: 25, y: 49 },
+    seats: makeSeats(5),
+    reviewsList: makeReviews("Doolally Taproom")
+  },
 ];
 
-export const getCafe = (slug: string): Cafe => cafes.find((cafe) => cafe.slug === slug) ?? cafes[0] ?? fallbackCafe;
-const fallbackCafe: Cafe = { slug: "workspot", name: "WorkSpot Café", area: "Mumbai", address: "Mumbai", distance: 0, rating: 4.8, reviews: 0, price: 149, image: cafe1, amenities: ["Wi-Fi", "Power"], availability: "Seats available", vibe: "Focused", description: "A work-friendly café in Mumbai.", hours: "9:00 AM–6:00 PM IST", marker: { x: 50, y: 50 }, seats: makeSeats() };
-export const formatDate = (value: string) => new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short" }).format(new Date(`${value}T12:00:00`));
-export const today = () => new Date().toISOString().slice(0, 10);
+const legacySlugMap: Record<string, string> = {
+  "blue-door-coffee": "subko-coffee-bandra",
+  "monsoon-desk-cafe": "blue-tokai-bandra",
+  "citrus-corner": "third-wave-coffee-khar",
+  "paper-plane-cafe": "kmc-mumbai-fort",
+  "studio-bean": "kcroasters-chuim",
+  "yellow-kettle": "doolally-taproom-khar",
+};
+
+export const getCafe = (slug: string): Cafe => {
+  const resolvedSlug = legacySlugMap[slug] || slug;
+  return cafes.find((cafe) => cafe.slug === resolvedSlug) ?? cafes[0] ?? fallbackCafe;
+};
+
+const fallbackCafe: Cafe = {
+  slug: "subko-coffee-bandra",
+  name: "Subko Coffee Craft House",
+  area: "Bandra West",
+  address: "Ranwar Village, Bandra West, Mumbai",
+  distance: 0.9,
+  rating: 4.9,
+  reviews: 342,
+  price: 189,
+  image: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1200&q=80",
+  amenities: ["Wi-Fi", "Power", "AC", "Food", "Ergonomic"],
+  availability: "Seats available",
+  vibe: "Artisanal & productive",
+  description: "A work-friendly specialty coffee house in Mumbai.",
+  hours: "7:30 AM–10:00 PM IST",
+  marker: { x: 24, y: 54 },
+  seats: makeSeats()
+};
+
+export const formatDate = (value: string) =>
+  new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short" }).format(
+    new Date(`${value}T12:00:00`)
+  );

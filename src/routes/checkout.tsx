@@ -4,12 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
   CheckCircle2,
-  CreditCard,
+  Clock,
+  Coffee,
+  IndianRupee,
   KeyRound,
-  Landmark,
   LoaderCircle,
-  LockKeyhole,
+  ShieldCheck,
   Smartphone,
+  Store,
 } from "lucide-react";
 import { BookingSummary, PriceBreakdown } from "@/components/booking-ui";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -17,15 +19,14 @@ import { useBooking } from "@/lib/booking-store";
 import { useAuth } from "@/lib/auth-store";
 import { formatDate, getCafe } from "@/lib/workspot-data";
 import { getLiveCafe } from "@/lib/firebase-service";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({
     meta: [
-      { title: "Review and pay — WorkSpot" },
-      { name: "description", content: "Review your WorkSpot reservation and complete a secure payment." },
-      { property: "og:title", content: "Review your WorkSpot booking" },
-      { property: "og:description", content: "Confirm your café, seat, time and payment method." },
+      { title: "Review & Confirm Reservation — WorkSpot" },
+      { name: "description", content: "Review your WorkSpot reservation. Reserve your seat online for free and pay at the café counter." },
+      { property: "og:title", content: "Review your WorkSpot reservation" },
+      { property: "og:description", content: "Free online seat reservation. Pay at the café counter on arrival." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -38,7 +39,6 @@ function Checkout() {
   const { user, sendOtp, verifyOtp, confirmationPending, isFirebaseActive } = useAuth();
   const nav = useNavigate();
 
-  const [method, setMethod] = useState("UPI");
   const [phone, setPhone] = useState(user?.phoneNumber?.replace("+91", "") ?? "");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
@@ -105,7 +105,7 @@ function Checkout() {
     }
   };
 
-  const handlePayAndConfirm = async () => {
+  const handleConfirmReservation = async () => {
     setBookingError(null);
     setBusy(true);
 
@@ -119,7 +119,8 @@ function Checkout() {
       userId: user?.uid,
       userPhone: user?.phoneNumber ?? "+919876543210",
       totalPrice: hourlyPrice * selection.duration,
-      paymentMethod: method,
+      paymentMethod: "Pay at counter",
+      paymentStatus: "pay_at_venue" as const,
       seatName: seat?.name ?? `Seat ${selection.seatId}`,
     };
 
@@ -129,7 +130,7 @@ function Checkout() {
     if (res.success) {
       nav({ to: "/booking/$id/confirmed", params: { id: bookingId } });
     } else {
-      setBookingError(res.error || "Unable to confirm booking. Please try another seat.");
+      setBookingError(res.error || "Unable to confirm reservation. Please try another seat.");
     }
   };
 
@@ -141,8 +142,10 @@ function Checkout() {
         <ArrowLeft size={18} />
         Back
       </ButtonLink>
-      <h1 className="mt-4 font-display text-4xl font-bold">Review and pay</h1>
-      <p className="mt-2 text-muted-foreground">One last look, then your seat is yours.</p>
+      <h1 className="mt-4 font-display text-4xl font-bold">Review & confirm reservation</h1>
+      <p className="mt-2 text-muted-foreground">
+        Reserve your seat for free now. Settle any hourly fee or café orders directly at the counter upon arrival.
+      </p>
 
       {bookingError && (
         <div className="mt-6 rounded-xl border border-destructive/50 bg-destructive/10 p-4 text-sm font-semibold text-destructive">
@@ -155,7 +158,12 @@ function Checkout() {
           {/* Contact & Phone OTP Verification */}
           <div className="rounded-xl border border-border bg-card p-6">
             <div className="flex items-center justify-between">
-              <h2 className="font-display text-xl font-bold">Contact details</h2>
+              <div>
+                <h2 className="font-display text-xl font-bold">Guest verification</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Used by café staff to verify your reserved desk on arrival.
+                </p>
+              </div>
               {isPhoneVerified && (
                 <span className="flex items-center gap-1 text-xs font-bold text-available-deep">
                   <CheckCircle2 size={15} /> Verified
@@ -169,8 +177,8 @@ function Checkout() {
                   <p className="text-xs font-bold text-muted-foreground">Mobile number</p>
                   <p className="font-display text-lg font-bold">{user?.phoneNumber}</p>
                 </div>
-                <span className="text-xs text-muted-foreground">
-                  {user?.isDemo ? "Demo Account" : "Firebase Verified"}
+                <span className="text-xs font-semibold text-available-deep">
+                  Ready for check-in
                 </span>
               </div>
             ) : (
@@ -197,7 +205,7 @@ function Checkout() {
                       disabled={busy || phone.length !== 10}
                       className="mt-4"
                     >
-                      {busy ? <LoaderCircle className="animate-spin" size={16} /> : "Verify via OTP"}
+                      {busy ? <LoaderCircle className="animate-spin" size={16} /> : "Send verification code"}
                     </Button>
                     <p className="mt-2 text-xs text-muted-foreground">
                       {isFirebaseActive
@@ -238,42 +246,43 @@ function Checkout() {
             )}
           </div>
 
-          {/* Payment Method */}
-          <div className="rounded-xl border border-border bg-card p-6">
-            <h2 className="font-display text-xl font-bold">Payment method</h2>
-            <div className="mt-4 grid gap-3">
-              {[
-                ["UPI", Smartphone, "Google Pay, PhonePe or any UPI app"],
-                ["Card", CreditCard, "Credit or debit card"],
-                ["Net banking", Landmark, "Choose your bank"],
-              ].map(([name, Icon, desc]) => {
-                const I = Icon as typeof Smartphone;
-                return (
-                  <button
-                    key={String(name)}
-                    type="button"
-                    onClick={() => setMethod(String(name))}
-                    className={cn(
-                      "grid min-h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border-2 px-4 text-left transition-colors",
-                      method === name ? "border-primary bg-primary/5" : "border-border"
-                    )}
-                  >
-                    <I />
-                    <span className="min-w-0">
-                      <b className="block">{String(name)}</b>
-                      <small className="text-muted-foreground">{String(desc)}</small>
-                    </span>
-                    <i
-                      className={cn(
-                        "size-4 rounded-full border-2",
-                        method === name
-                          ? "border-primary bg-primary ring-2 ring-primary/20"
-                          : "border-border"
-                      )}
-                    />
-                  </button>
-                );
-              })}
+          {/* Pay at Cafe Counter Explainer Card */}
+          <div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-6">
+            <div className="flex items-start gap-3.5">
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                <Store size={20} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <h2 className="font-display text-lg font-bold">Free Online Reservation</h2>
+                  <span className="rounded-full bg-available/20 border border-available/30 px-2.5 py-0.5 text-[11px] font-extrabold uppercase text-available-deep">
+                    No upfront payment
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                  You are reserving your seat directly with {cafe.name}. No credit card or online payment is required right now.
+                </p>
+
+                <div className="mt-4 grid gap-2.5 rounded-lg border border-border/70 bg-card p-4 text-xs">
+                  <div className="flex items-center justify-between font-bold">
+                    <span className="text-muted-foreground">Online booking charge:</span>
+                    <span className="text-available-deep font-extrabold text-sm">₹0 (Free)</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Café hourly rate (pay at counter):</span>
+                    <span className="font-bold text-foreground">₹{cafe.price || 149} / hour</span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-border/50 pt-2 font-bold">
+                    <span>Estimated venue counter total:</span>
+                    <span className="text-foreground">₹{(cafe.price || 149) * selection.duration}</span>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+                  <Coffee size={14} className="shrink-0 text-primary" />
+                  <span>Settle your desk rate or food & drink orders directly with the café staff upon arrival.</span>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -297,31 +306,41 @@ function Checkout() {
                 seatName={seat?.name}
               />
             </div>
-            <div className="my-5 border-t border-border pt-5">
-              <PriceBreakdown cafe={cafe} duration={selection.duration} />
+
+            <div className="my-5 border-t border-border pt-4 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Online reservation fee</span>
+                <span className="font-bold text-available-deep">FREE</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Pay at counter upon arrival</span>
+                <span className="font-bold">₹{(cafe.price || 149) * selection.duration}</span>
+              </div>
             </div>
+
             <p className="rounded-lg bg-secondary p-3 text-xs text-muted-foreground">
-              Free cancellation until 2 hours before your start time.
+              Free cancellation anytime up to 2 hours before your start time.
             </p>
+
             <Button
               disabled={busy || !isPhoneVerified}
-              onClick={handlePayAndConfirm}
-              className="mt-5 w-full"
+              onClick={handleConfirmReservation}
+              className="mt-5 w-full text-sm font-bold"
             >
               {busy ? (
                 <>
                   <LoaderCircle className="animate-spin" size={16} />
-                  Processing…
+                  Confirming…
                 </>
               ) : (
                 <>
-                  Confirm booking <LockKeyhole size={16} />
+                  Confirm free reservation <CheckCircle2 size={16} />
                 </>
               )}
             </Button>
             {!isPhoneVerified && (
               <p className="mt-2 text-center text-xs text-muted-foreground">
-                Please verify your phone number above to continue.
+                Please verify your phone number above to reserve.
               </p>
             )}
           </div>

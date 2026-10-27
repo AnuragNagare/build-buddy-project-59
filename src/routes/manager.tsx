@@ -47,8 +47,8 @@ type Tab = "Overview" | "Bookings" | "Venue" | "Seats & availability" | "Reviews
 
 function Manager() {
   const [tab, setTab] = useState<Tab>("Overview");
-  const [cafeSlug, setCafeSlug] = useState<string>("blue-door-coffee");
-  const [currentCafe, setCurrentCafe] = useState<Cafe>(getCafe("blue-door-coffee"));
+  const [cafeSlug, setCafeSlug] = useState<string>("subko-coffee-bandra");
+  const [currentCafe, setCurrentCafe] = useState<Cafe>(getCafe("subko-coffee-bandra"));
   const [tier, setTier] = useState<"free" | "pro">("pro"); // Demo default to Pro so reviews curation is immediately testable
 
   const [seats, setSeats] = useState(
@@ -92,7 +92,7 @@ function Manager() {
               Host Venue
             </span>
             <h2 className="mt-1 font-display text-lg font-bold text-primary-foreground">
-              {currentCafe?.name || "Blue Door Coffee"}
+              {currentCafe?.name || "Subko Coffee Craft House"}
             </h2>
             <div className="mt-2 flex items-center justify-between">
               {tier === "pro" ? (
@@ -355,7 +355,7 @@ function Venue({ cafe }: { cafe?: Cafe }) {
       <label className="mt-5 block text-sm font-bold">
         Work-friendly description
         <textarea
-          defaultValue={cafe?.description || getCafe("blue-door-coffee").description}
+          defaultValue={cafe?.description || getCafe("subko-coffee-bandra").description}
           className="mt-2 min-h-28 w-full rounded-lg border border-border p-3"
         />
       </label>

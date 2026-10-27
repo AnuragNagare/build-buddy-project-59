@@ -12,7 +12,16 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "./firebase";
-import { cafes, getCafe, type Cafe, type Booking, type VendorApplication, type Seat, type PendingReviewSubmission } from "./workspot-data";
+import {
+  cafes,
+  getCafe,
+  today,
+  type Cafe,
+  type Booking,
+  type VendorApplication,
+  type Seat,
+  type PendingReviewSubmission,
+} from "./workspot-data";
 
 /**
  * Fetch all work-friendly café listings.
@@ -173,8 +182,8 @@ export async function cancelLiveBooking(bookingId: string): Promise<boolean> {
 const demoAdminBookings: Booking[] = [
   {
     id: "WS-MUM-4821",
-    cafeSlug: "blue-door-coffee",
-    date: "2026-10-16",
+    cafeSlug: "subko-coffee-bandra",
+    date: today(),
     time: "10:00",
     duration: 2,
     seatId: "s2",
@@ -183,13 +192,14 @@ const demoAdminBookings: Booking[] = [
     createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
     userPhone: "+919820123456",
     userId: "demo-user-1",
-    totalPrice: 298,
-    paymentMethod: "UPI",
+    totalPrice: 378,
+    paymentMethod: "Pay at counter",
+    paymentStatus: "pay_at_venue",
   },
   {
     id: "WS-MUM-5174",
-    cafeSlug: "monsoon-desk-cafe",
-    date: "2026-10-16",
+    cafeSlug: "blue-tokai-bandra",
+    date: today(),
     time: "11:00",
     duration: 3,
     seatId: "s4",
@@ -198,13 +208,14 @@ const demoAdminBookings: Booking[] = [
     createdAt: new Date(Date.now() - 3600000 * 5).toISOString(),
     userPhone: "+919819876543",
     userId: "demo-user-2",
-    totalPrice: 537,
-    paymentMethod: "Card",
+    totalPrice: 477,
+    paymentMethod: "Pay at counter",
+    paymentStatus: "pay_at_venue",
   },
   {
     id: "WS-MUM-3942",
-    cafeSlug: "citrus-corner",
-    date: "2026-10-15",
+    cafeSlug: "third-wave-coffee-khar",
+    date: today(),
     time: "14:00",
     duration: 2,
     seatId: "s1",
@@ -213,13 +224,14 @@ const demoAdminBookings: Booking[] = [
     createdAt: new Date(Date.now() - 3600000 * 28).toISOString(),
     userPhone: "+919769112233",
     userId: "demo-user-3",
-    totalPrice: 258,
-    paymentMethod: "UPI",
+    totalPrice: 298,
+    paymentMethod: "Pay at counter",
+    paymentStatus: "pay_at_venue",
   },
   {
     id: "WS-MUM-2819",
-    cafeSlug: "paper-plane-cafe",
-    date: "2026-10-14",
+    cafeSlug: "kmc-mumbai-fort",
+    date: today(),
     time: "15:00",
     duration: 4,
     seatId: "s7",
@@ -229,7 +241,8 @@ const demoAdminBookings: Booking[] = [
     userPhone: "+919833445566",
     userId: "demo-user-4",
     totalPrice: 796,
-    paymentMethod: "Net banking",
+    paymentMethod: "Pay at counter",
+    paymentStatus: "pay_at_venue",
   },
 ];
 

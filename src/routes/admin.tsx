@@ -775,7 +775,7 @@ function AdminBookingsTab({
                       <td className="px-4 py-3.5 font-bold text-foreground">
                         ₹{price}
                         <span className="block text-[10px] font-normal text-muted-foreground">
-                          {b.paymentMethod || "UPI"}
+                          {b.paymentMethod || "Pay at counter"}
                         </span>
                       </td>
 

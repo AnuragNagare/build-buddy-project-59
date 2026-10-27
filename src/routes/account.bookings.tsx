@@ -23,13 +23,15 @@ export const Route = createFileRoute("/account/bookings")({
 
 const demo: Booking = {
   id: "WS-MUM-4318",
-  cafeSlug: "paper-plane-cafe",
+  cafeSlug: "subko-coffee-bandra",
   date: today(),
   time: "14:00",
   duration: 2,
   seatId: "s1",
   status: "upcoming",
   createdAt: new Date().toISOString(),
+  paymentMethod: "Pay at counter",
+  paymentStatus: "pay_at_venue",
 };
 
 function Bookings() {
@@ -99,18 +101,23 @@ function Bookings() {
                   className="aspect-[4/3] h-full w-full rounded-lg object-cover"
                 />
                 <div className="min-w-0">
-                  <span
-                    className={cn(
-                      "rounded-full px-2 py-1 text-xs font-bold capitalize",
-                      b.status === "upcoming"
-                        ? "bg-available/30 text-available-foreground"
-                        : b.status === "cancelled"
-                        ? "bg-coral/20 text-coral-deep"
-                        : "bg-muted"
-                    )}
-                  >
-                    {b.status}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={cn(
+                        "rounded-full px-2.5 py-0.5 text-xs font-bold capitalize",
+                        b.status === "upcoming"
+                          ? "bg-available/30 text-available-foreground"
+                          : b.status === "cancelled"
+                          ? "bg-coral/20 text-coral-deep"
+                          : "bg-muted"
+                      )}
+                    >
+                      {b.status}
+                    </span>
+                    <span className="rounded-full bg-secondary border border-border px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
+                      Pay ₹{b.totalPrice || (cafe.price || 149) * b.duration} at counter
+                    </span>
+                  </div>
                   <h2 className="mt-3 truncate font-display text-xl font-bold">{cafe.name}</h2>
                   <p className="mt-1 text-sm text-muted-foreground">
                     <MapPin className="mr-1 inline" size={14} />
