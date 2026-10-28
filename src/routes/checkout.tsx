@@ -17,7 +17,7 @@ import { BookingSummary, PriceBreakdown } from "@/components/booking-ui";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { useBooking } from "@/lib/booking-store";
 import { useAuth } from "@/lib/auth-store";
-import { formatDate, getCafe } from "@/lib/workspot-data";
+import { formatDate, getCafe, getCafeImage } from "@/lib/workspot-data";
 import { getLiveCafe } from "@/lib/firebase-service";
 
 export const Route = createFileRoute("/checkout")({
@@ -291,7 +291,7 @@ function Checkout() {
         <aside>
           <div className="rounded-xl border-2 border-foreground bg-card p-6 shadow-[8px_8px_0_var(--sun)]">
             <img
-              src={cafe.image}
+              src={getCafeImage(cafe)}
               alt={cafe.name}
               width={1200}
               height={800}

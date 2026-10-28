@@ -13,6 +13,8 @@ export type Cafe = {
   vibe: string; description: string; hours: string; marker: { x: number; y: number }; seats: Seat[];
   reviewsList?: CafeReview[];
   tier?: "free" | "pro";
+  lat?: number;
+  lon?: number;
 };
 export type BookingSelection = { cafeSlug: string; date: string; time: string; duration: number; seatId: string };
 export type Booking = BookingSelection & {
@@ -98,7 +100,7 @@ export const cafes: Cafe[] = [
     rating: 4.8,
     reviews: 320,
     price: 149,
-    image: "https://images.unsplash.com/photo-1521017432531-fbd92d768814?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     amenities: ["Wi-Fi", "Power", "AC", "Food"],
     availability: "7 seats open",
     vibe: "Warm, energetic & laptop-friendly",
@@ -118,7 +120,7 @@ export const cafes: Cafe[] = [
     rating: 4.9,
     reviews: 295,
     price: 159,
-    image: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     amenities: ["Wi-Fi", "Power", "AC", "Food", "Quiet"],
     availability: "6 seats open",
     vibe: "Minimalist, quiet & coffee-centric",
@@ -138,7 +140,7 @@ export const cafes: Cafe[] = [
     rating: 4.7,
     reviews: 410,
     price: 139,
-    image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     amenities: ["Wi-Fi", "Power", "AC", "Food", "Ergonomic"],
     availability: "9 seats open",
     vibe: "Spacious, community-driven & pet-friendly",
@@ -157,7 +159,7 @@ export const cafes: Cafe[] = [
     rating: 4.7,
     reviews: 182,
     price: 179,
-    image: "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     amenities: ["Wi-Fi", "Power", "AC", "Food", "Quiet"],
     availability: "5 seats open",
     vibe: "Sunlit, serene & health-conscious",
@@ -177,7 +179,7 @@ export const cafes: Cafe[] = [
     rating: 4.8,
     reviews: 140,
     price: 169,
-    image: "https://images.unsplash.com/photo-1600093463592-8e36ae95ef56?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     amenities: ["Wi-Fi", "Power", "AC", "Food"],
     availability: "6 seats open",
     vibe: "Aesthetic, botanical & vibrant",
@@ -196,7 +198,7 @@ export const cafes: Cafe[] = [
     rating: 4.6,
     reviews: 512,
     price: 159,
-    image: "https://images.unsplash.com/photo-1442512595331-e89e73853f31?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     amenities: ["Wi-Fi", "Power", "AC", "Food"],
     availability: "8 seats open",
     vibe: "Classic, reliable & lively",
@@ -217,7 +219,7 @@ export const cafes: Cafe[] = [
     rating: 4.9,
     reviews: 342,
     price: 189,
-    image: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     amenities: ["Wi-Fi", "Power", "AC", "Food", "Ergonomic"],
     availability: "5 seats open",
     vibe: "Artisanal, vibrant & laptop-friendly",
@@ -237,7 +239,7 @@ export const cafes: Cafe[] = [
     rating: 4.8,
     reviews: 289,
     price: 159,
-    image: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     amenities: ["Wi-Fi", "Power", "AC", "Food", "Quiet"],
     availability: "7 seats open",
     vibe: "Focused, quiet & coffee-centric",
@@ -257,7 +259,7 @@ export const cafes: Cafe[] = [
     rating: 4.7,
     reviews: 215,
     price: 149,
-    image: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     amenities: ["Wi-Fi", "Power", "AC", "Food"],
     availability: "6 seats open",
     vibe: "Warm, energetic & productive",
@@ -276,7 +278,7 @@ export const cafes: Cafe[] = [
     rating: 4.8,
     reviews: 178,
     price: 199,
-    image: "https://images.unsplash.com/photo-1507133750040-4a8f57021571?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     amenities: ["Wi-Fi", "Power", "AC", "Quiet", "Ergonomic", "Food"],
     availability: "4 seats open",
     vibe: "Sophisticated, calm & literary",
@@ -296,7 +298,7 @@ export const cafes: Cafe[] = [
     rating: 4.9,
     reviews: 164,
     price: 169,
-    image: "https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     amenities: ["Wi-Fi", "Power", "Quiet", "Food"],
     availability: "5 seats open",
     vibe: "Intimate, quiet & artisan",
@@ -315,7 +317,7 @@ export const cafes: Cafe[] = [
     rating: 4.6,
     reviews: 310,
     price: 139,
-    image: "https://images.unsplash.com/photo-1525610553991-2bede1a236e2?auto=format&fit=crop&w=1200&q=80",
+    image: "",
     amenities: ["Wi-Fi", "Power", "AC", "Food", "Ergonomic"],
     availability: "8 seats open",
     vibe: "Pet-friendly, relaxed & spacious",
@@ -350,7 +352,7 @@ const fallbackCafe: Cafe = {
   rating: 4.9,
   reviews: 342,
   price: 189,
-  image: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1200&q=80",
+  image: "",
   amenities: ["Wi-Fi", "Power", "AC", "Food", "Ergonomic"],
   availability: "Seats available",
   vibe: "Artisanal & productive",
@@ -364,3 +366,33 @@ export const formatDate = (value: string) =>
   new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short" }).format(
     new Date(`${value}T12:00:00`)
   );
+
+
+// Generic photos for cafés that haven't uploaded their own yet (real photos arrive via partner registration).
+const genericCafeImages = [cafe1, cafe2, cafe3, cafe4];
+
+// Stock URLs (the old seed data and the partner form default) are not photos of the venue itself.
+export const isGenericCafeImage = (image?: string) => !image || image.includes("images.unsplash.com");
+
+export const getCafeImage = (cafe: Pick<Cafe, "slug" | "image">) => {
+  if (!isGenericCafeImage(cafe.image)) return cafe.image;
+  let hash = 0;
+  for (const char of cafe.slug) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return genericCafeImages[hash % genericCafeImages.length] ?? cafe1;
+};
+
+// Neighbourhoods searched together, e.g. "Andheri" should also find Lokhandwala and Versova cafés.
+const areaAliases: Record<string, string[]> = {
+  andheri: ["lokhandwala", "oshiwara", "versova", "veera desai", "seven bungalows", "jb nagar", "chakala", "marol"],
+  bandra: ["khar", "pali hill", "linking road", "bkc", "bandra kurla"],
+  "lower parel": ["worli", "mahalaxmi", "prabhadevi"],
+  fort: ["kala ghoda", "colaba", "churchgate", "nariman point"],
+};
+
+export const matchesCafeSearch = (cafe: Pick<Cafe, "name" | "area" | "address">, search: string) => {
+  const needle = search.trim().toLowerCase();
+  if (!needle) return true;
+  const terms = [needle, ...(areaAliases[needle] ?? [])];
+  const haystack = `${cafe.name} ${cafe.area} ${cafe.address}`.toLowerCase();
+  return terms.some((term) => haystack.includes(term));
+};

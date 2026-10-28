@@ -1,106 +1,83 @@
-# WorkSpot — Real Data & Free Reservation Architecture Plan
+# WorkSpot — Café List Fix & Generic Café Images Plan
 
-## 1. Objectives & Requirements
+Supersedes the earlier "Real Data & Free Reservation" plan (still in git history).
 
-1. **Real Mumbai Cafés & Live Data**:
-   - Replace fictional placeholder cafés with authentic, well-known work-friendly Mumbai cafés (e.g., Subko Coffee Craft House Bandra, Blue Tokai Coffee Roasters Bandra/Fort, Third Wave Coffee Khar, KCROASTERS Chuim Village, Doolally Taproom Khar, KMC Mumbai Fort) in `src/lib/workspot-data.ts`.
-   - Populate real street addresses, exact neighborhood mappings, authentic amenities (fiber Wi-Fi, abundant plugs, AC, quiet zones), real operational hours, accurate visual map markers, and high-quality photography.
-   - Run/integrate the OpenStreetMap seeder (`scripts/seed-firestore.mjs`) to sync live Mumbai venues into the connected Firestore project (`live-farmaish`).
-   - Dynamic & realistic review dates and reservation timestamps reflecting current dates.
+## 1. Problems
 
-2. **Remove User-Side Payments (Free Reservation, Pay at Café Counter)**:
-   - **Zero payment collected from users online**: Remove the payment gateway / payment method selector (UPI, Card, Net banking) from the customer booking flow.
-   - **Reserve Online, Pay at Venue**: Customer reserves their exact seat and time slot for free online. The booking pass specifies *"Pay at café counter upon arrival"* for their hourly booking or food/beverages.
-   - **Retain Café Partner Fee**: Keep the ₹49 fee on the café partner self-registration page (`/partner/register`), because venues pay the platform for onboarding / Pro Tier verification, whereas remote workers reserve for free.
+1. **Explore shows only 2 cafés for "Andheri"** ("Citrus Corner", "Sequel"). Neither matches
+   `src/lib/workspot-data.ts` (the code has 6 Andheri West cafés; "Citrus Corner" is a retired legacy slug).
+2. **Café photos are Unsplash stock images** that do not look like the real venues. Real photos will come
+   from cafés themselves when they register (`/partner/register`), so for now we need one consistent,
+   honest fallback.
 
----
+## 2. Root cause (hypothesis — verify in step A1 before changing code)
 
-## 2. Component & Flow Architecture Changes
+`getLiveCafes()` in `src/lib/firebase-service.ts` returns the Firestore `cafes` collection **as-is** whenever it
+is non-empty. It never merges with the code list, and the legacy-slug cleanup only runs on the localStorage
+path. A stale seed in Firestore (old placeholder cafés, different ratings/distances from the code) therefore
+hides the current list. `Explore` then filters that list by name/area text, radius and amenities, so only
+what is in Firestore can ever show up.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       CUSTOMER RESERVATION FLOW                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-  /explore & /                                 /cafes/:slug
-  Real Mumbai Cafés (Subko,        ───►        Interactive Seat Map
-  Blue Tokai, Third Wave, etc.)                Date, Time, Duration
-                                                        │
-                                                        ▼
-                                                  /checkout
-                                         • Phone OTP Verification
-                                         • REMOVED: UPI / Card / Netbanking
-                                         • ADDED: "Free Online Reservation"
-                                                  "Pay at Café Counter"
-                                         • Action: "Confirm Free Reservation"
-                                                        │
-                                                        ▼
-                                            /booking/:id/confirmed
-                                         Pass with QR + "Pay at Counter"
+## 3. Part A — Fix the café list
 
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    PARTNER & ADMIN FLOW (FEE RETAINED)                      │
-└─────────────────────────────────────────────────────────────────────────────┘
-  /partner/register                ───►  ₹49 Pro Tier Fee Retained for Cafés
-  /manager                         ───►  Venue Manager Views Reservations
-  /admin                           ───►  Super Admin (Approves Vendors,
-                                         Inspects Reservations, Manages Layouts)
-```
+- **A1. Verify (read-only).** List the docs in Firestore `cafes` (slug, name, area, distance, image) and confirm
+  stale docs such as `citrus-corner` exist. No writes.
+- **A2. Merge strategy in `getLiveCafes()` / `getLiveCafe()`.**
+  - Base = code list (`cafes`), override per slug by the Firestore doc, plus any extra Firestore docs
+    (admin-approved vendor cafés).
+  - Drop legacy slugs (`LEGACY_SLUGS`) from the Firestore result too, not only from localStorage.
+  - Keep the existing fallback to local data when Firestore is unconfigured or errors.
+  - Keep mock domain data isolated from booking state (per AGENTS.md); the merge lives in the service layer.
+- **A3. Clean the stale Firestore docs.** Delete legacy-slug docs and re-run `bun run db:seed` so Firestore matches
+  the current list. Destructive and shared, so it needs explicit approval first (see Q2).
+- **A4. More Andheri cafés.** Add more venues to the seed/data. The seed script currently has about 12 hand-picked
+  cafés, and its OpenStreetMap fetch is capped at 60 results with random distances and no photos. Options in Q1.
+- **A5. Search quality (small).** Make the text search match area synonyms ("Andheri" matches "Andheri West/East",
+  "Lokhandwala", "Oshiwara") and confirm the 5 km default radius isn't hiding valid cafés.
 
----
+## 4. Part B — Generic café images (interim)
 
-## 3. Detailed Step-by-Step Implementation Tasks
+Goal: every café without a real, café-supplied photo shows a neutral, consistent placeholder. No scraping of
+Google or other sites.
 
-### Phase 1: Real Mumbai Café Data & Dynamic Dates
-- [ ] **Task 1.1: Curate Real Work-Friendly Mumbai Cafés in `src/lib/workspot-data.ts`**
-  - **Subko Coffee Craft House** (Ranwar Village, Bandra West)
-  - **Blue Tokai Coffee Roasters** (Perry Cross Rd, Bandra West & Kala Ghoda, Fort)
-  - **Third Wave Coffee** (Linking Road / Khar West & Powai)
-  - **KMC Mumbai** (Kitab Mahal, Fort)
-  - **KCROASTERS by Curators** (Chuim Village, Khar West)
-  - **Doolally Taproom** (Khar West & Andheri)
-  - Provide accurate addresses, real operational hours, accurate Mumbai map coordinates (`marker: { x, y }`), curated amenities, and realistic customer reviews with dynamic dates.
-- [ ] **Task 1.2: Sync OpenStreetMap Seeder with Firestore**
-  - Verify and run `scripts/seed-firestore.mjs` against `live-farmaish` Firestore instance.
-  - Ensure fallback `getCustomLocalCafes()` and `getLiveCafes()` render the rich authentic dataset seamlessly whether online or offline.
-- [ ] **Task 1.3: Update Landing Page & Explore Copy**
-  - Replace any legacy placeholder references in `src/routes/index.tsx` and `src/routes/explore.tsx` with authentic venue highlights.
+- **B1. Image pool.** Use the 4 existing local assets (`src/assets/workspot-cafe-1..4.jpg`, currently imported
+  but unused) as the generic set. Optionally add a few more licensed or free-to-use images.
+- **B2. Resolver helper** (in `src/lib/workspot-data.ts`, next to the data): `getCafeImage(cafe)`.
+  - Returns `cafe.image` if it's a real uploaded photo.
+  - Otherwise picks a generic image deterministically from a hash of the slug, so a café always gets the same
+    picture and neighbours don't all look identical.
+- **B3. Data change.** Remove the Unsplash stock URLs from the hand-picked cafés (and from the seed script's
+  fallback list), leaving `image` empty until a café uploads one. Add an optional `imageIsGeneric` flag if needed.
+- **B4. Use the helper everywhere an image renders:** `cafe-card.tsx`, `cafes.$slug.tsx` (hero + side image),
+  `checkout.tsx`, `account.bookings.tsx`, `index.tsx` hero, and the admin/manager previews.
+- **B5. Honesty label.** A small "Representative photo" caption/badge on generic images, so users don't think they
+  are the venue. Hidden once a real photo exists (see Q4).
+- **B6. Hook for real photos (later).** The partner form already takes a cover image URL. Real uploads (Firebase
+  Storage) are a separate task; this plan only makes sure `image` set on approval wins over the generic fallback.
 
-### Phase 2: Customer Checkout & Booking Flow Refactoring
-- [ ] **Task 2.1: Redesign `src/routes/checkout.tsx`**
-  - Remove payment method radio selector (UPI, Card, Net banking).
-  - Update page header from "Review and pay" to "Review & Confirm Reservation".
-  - Add prominent notice banner:
-    > **Free Online Seat Reservation**
-    > No payment is required right now. Your seat will be held for your selected time. Any venue hourly fee (₹XX) or café orders will be settled directly at the café counter upon arrival.
-  - Change submit button:
-    - From: `Confirm booking <LockKeyhole />`
-    - To: `Confirm Free Reservation <CheckCircle2 />`
-  - Update booking payload:
-    - `paymentMethod: "Pay at counter"`
-    - `paymentStatus: "pay_at_venue"`
-- [ ] **Task 2.2: Update Venue Details Page (`src/routes/cafes.$slug.tsx`)**
-  - Update sticky booking sidebar copy:
-    - Change button from "Continue to book" to "Reserve Seat (Pay at Café)".
-    - Change "Secure checkout" note to "Free reservation · Instant confirmation".
-- [ ] **Task 2.3: Update Booking Confirmation Pass (`src/routes/booking.$id.confirmed.tsx`)**
-  - Display "Pay at Counter on Arrival" badge and clear arrival instructions on the digital pass.
-- [ ] **Task 2.4: Update Account Bookings (`src/routes/account.bookings.tsx`)**
-  - Display "Pay at counter" status badge and details in the customer's reservation history.
+## 5. Verification
 
-### Phase 3: Partner Onboarding & Admin Retainment
-- [ ] **Task 3.1: Maintain ₹49 Onboarding Fee in `src/routes/partner.register.tsx`**
-  - Ensure the Pro Tier ₹49 fee and simulated payment modal remain intact for café partners as requested.
-- [ ] **Task 3.2: Update Admin Dashboard (`src/routes/admin.tsx`)**
-  - In "Bookings & Finances", update table columns and tooltips to distinguish between "Counter Collection (Expected)" for customer bookings vs. "Platform Vendor Fees" collected from café partners.
-- [ ] **Task 3.3: Update Café Manager Dashboard (`src/routes/manager.tsx`)**
-  - Show counter check-ins and expected on-arrival collections.
+- Explore with `Andheri` shows all Andheri cafés in code (6+), none of the legacy ones.
+- Firestore unconfigured (demo mode) still works, and Firestore configured and empty still works.
+- Admin-approved vendor café still appears and uses its uploaded `coverImage`.
+- Every card, detail page, checkout, bookings and confirmation view shows an image or the generic fallback; no
+  broken images.
+- `bun run test` (routing tests) and `bun run lint` pass; check `/explore?q=Andheri` in the browser.
 
-### Phase 4: Verification & End-to-End Validation
-- [ ] **Task 4.1: Test Booking Journey**
-  - Explore -> Select Seat -> Checkout without payment -> Confirmed pass with QR -> Verify in "My Bookings".
-- [ ] **Task 4.2: Test Partner Registration Journey**
-  - Verify partner application with ₹49 Pro fee works as expected and appears in the Super Admin queue.
-- [ ] **Task 4.3: Test Admin Operations**
-  - Verify bookings table displays the updated "Pay at counter" status correctly.
-- [ ] **Task 4.4: Automated Test Suite**
-  - Run `bun test` / Vitest to ensure routing and page matching tests pass with zero regressions.
+## 6. Out of scope
+
+Google Places / Google Images fetching, real photo uploads and storage, a real map (Mapbox or Google), and
+live seat availability from existing bookings.
+
+## 7. Open questions
+
+- **Q1. Where do the extra Andheri cafés come from?** (a) a list you give me, (b) the OpenStreetMap seeder
+  (free, but names and addresses only, no photos or amenities, and quality varies), or (c) I add a curated set and
+  you review it. Should this cover Andheri only, or all of Mumbai?
+- **Q2. May I delete stale docs in your Firestore project and re-seed it?** If not, the merge in A2 hides them in
+  the app but they stay in the database.
+- **Q3. Should OSM-seeded cafés be bookable?** They have no real seat layouts or partner agreement, so the options
+  are to mark them "Not yet partnered / listing only" or give them a default seat grid like today.
+- **Q4. Generic photos:** replace all existing Unsplash photos, including on the hand-picked real cafés? Show a
+  "Representative photo" label, or none?
+- **Q5. Image source:** is using the 4 existing assets enough, or do you have your own generic images to add?

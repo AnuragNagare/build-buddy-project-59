@@ -17,7 +17,7 @@ import {
 import { BookingSummary, PriceBreakdown, SeatGrid, timeSlots } from "@/components/booking-ui";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { useBooking } from "@/lib/booking-store";
-import { formatDate, getCafe, today } from "@/lib/workspot-data";
+import { formatDate, getCafe, getCafeImage, isGenericCafeImage, today } from "@/lib/workspot-data";
 import { getLiveCafe } from "@/lib/firebase-service";
 import { cn } from "@/lib/utils";
 
@@ -73,7 +73,7 @@ function CafeDetail() {
         </ButtonLink>
         <div className="mt-3 grid gap-3 lg:grid-cols-12">
           <img
-            src={cafe.image}
+            src={getCafeImage(cafe)}
             alt={`${cafe.name} interior`}
             width={1200}
             height={800}
@@ -81,7 +81,7 @@ function CafeDetail() {
           />
           <div className="grid grid-cols-2 gap-3 lg:col-span-4 lg:grid-cols-1">
             <img
-              src={cafe.image}
+              src={getCafeImage(cafe)}
               alt="Window work seats"
               loading="lazy"
               width={1200}
@@ -118,6 +118,12 @@ function CafeDetail() {
           </div>
         </div>
 
+        {isGenericCafeImage(cafe.image) && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Representative photos — {cafe.name} hasn't uploaded its own yet.
+          </p>
+        )}
+
         <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_380px]">
           <div>
             <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4">
@@ -142,7 +148,7 @@ function CafeDetail() {
                 </a>
               </div>
               <span className="h-fit shrink-0 rounded-full bg-sun px-3 py-1 text-sm font-bold">
-                ★ {cafe.rating}
+                {cafe.reviews > 0 ? `★ ${cafe.rating}` : "New"}
               </span>
             </div>
             <p className="mt-6 max-w-3xl text-lg leading-8 text-muted-foreground">

@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { List, LocateFixed, Map as MapIcon, Search, SlidersHorizontal } from "lucide-react";
 import { CafeCard } from "@/components/cafe-card";
 import { Button } from "@/components/ui/button";
-import { cafes as defaultCafes } from "@/lib/workspot-data";
+import { cafes as defaultCafes, matchesCafeSearch } from "@/lib/workspot-data";
 import { getLiveCafes } from "@/lib/firebase-service";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +45,7 @@ function Explore() {
     () =>
       allCafes.filter(
         (c) =>
-          (!query || `${c.name} ${c.area}`.toLowerCase().includes(query.toLowerCase())) &&
+          matchesCafeSearch(c, query) &&
           c.distance <= radius &&
           filters.every((f) => c.amenities.includes(f as never))
       ),

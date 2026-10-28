@@ -91,9 +91,7 @@ function PartnerRegisterPage() {
   const [vibe, setVibe] = useState("Bright, quiet & social");
   const [description, setDescription] = useState("");
   const [amenities, setAmenities] = useState<Amenity[]>(["Wi-Fi", "Power", "AC", "Food"]);
-  const [coverImage, setCoverImage] = useState(
-    "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1200&q=80"
-  );
+  const [coverImage, setCoverImage] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -163,8 +161,7 @@ function PartnerRegisterPage() {
         amenities,
         seatsCount,
         coverImage:
-          coverImage.trim() ||
-          "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1200&q=80",
+          coverImage.trim(),
         videoUrl: videoUrl.trim() || undefined,
         notes: notes.trim() || undefined,
         plan: selectedPlan,
@@ -588,14 +585,13 @@ function PartnerRegisterPage() {
           <div className="mt-5 space-y-4">
             <div>
               <label className="block text-xs font-bold uppercase text-muted-foreground">
-                Primary Cover Image URL *
+                Primary Cover Image URL (Optional)
               </label>
               <input
-                required
                 type="url"
                 value={coverImage}
                 onChange={(e) => setCoverImage(e.target.value)}
-                placeholder="https://images.unsplash.com/..."
+                placeholder="Photo link — a representative photo is shown until you add one"
                 className="mt-1.5 min-h-12 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none focus:border-primary"
               />
               {coverImage && (

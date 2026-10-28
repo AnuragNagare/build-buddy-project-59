@@ -25,8 +25,8 @@ import {
 
 /**
  * Fetch all work-friendly café listings.
- * Retrieves live records from Firestore 'cafes' collection if configured,
- * falling back seamlessly to mock domain data otherwise.
+ * Base = curated cafés from workspot-data; Firestore docs override by slug and add extra venues
+ * (seeded or admin-approved). Falls back to local data when Firestore is unconfigured or fails.
  */
 export async function getLiveCafes(): Promise<Cafe[]> {
   if (!isFirebaseConfigured || !db) {
@@ -42,11 +42,12 @@ export async function getLiveCafes(): Promise<Cafe[]> {
       return getCustomLocalCafes();
     }
 
-    const liveCafes: Cafe[] = [];
+    const bySlug = new Map<string, Cafe>(cafes.map((cafe) => [cafe.slug, cafe]));
     snapshot.forEach((docSnap) => {
-      liveCafes.push({ slug: docSnap.id, ...(docSnap.data() as Omit<Cafe, "slug">) });
+      if (LEGACY_SLUGS.has(docSnap.id)) return;
+      bySlug.set(docSnap.id, { slug: docSnap.id, ...(docSnap.data() as Omit<Cafe, "slug">) });
     });
-    return liveCafes;
+    return Array.from(bySlug.values());
   } catch (err) {
     console.warn("Error fetching cafes from Firestore, using fallback data:", err);
     return getCustomLocalCafes();

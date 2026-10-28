@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Crown, MapPin, Star, Wifi, Zap } from "lucide-react";
-import type { Cafe } from "@/lib/workspot-data";
+import { getCafeImage, isGenericCafeImage, type Cafe } from "@/lib/workspot-data";
 import { cn } from "@/lib/utils";
 
 export function CafeCard({ cafe, selected, onSelect }: { cafe: Cafe; selected?: boolean; onSelect?: () => void }) {
@@ -14,7 +14,7 @@ export function CafeCard({ cafe, selected, onSelect }: { cafe: Cafe; selected?: 
     >
       <div className="relative aspect-[16/9] overflow-hidden">
         <img
-          src={cafe.image}
+          src={getCafeImage(cafe)}
           alt={`Workspace seating at ${cafe.name}`}
           loading="lazy"
           width={1200}
@@ -24,6 +24,11 @@ export function CafeCard({ cafe, selected, onSelect }: { cafe: Cafe; selected?: 
         <span className="absolute left-3 top-3 rounded-full bg-available px-3 py-1 text-xs font-bold text-available-foreground">
           {cafe.availability}
         </span>
+        {isGenericCafeImage(cafe.image) && (
+          <span className="absolute bottom-3 left-3 rounded-full bg-foreground/70 px-2.5 py-1 text-[11px] font-semibold text-primary-foreground">
+            Representative photo
+          </span>
+        )}
         {cafe.tier === "pro" && (
           <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-amber-500 text-white px-2.5 py-1 text-[11px] font-bold shadow-md">
             <Crown size={12} className="fill-white text-white" /> Pro
@@ -40,7 +45,7 @@ export function CafeCard({ cafe, selected, onSelect }: { cafe: Cafe; selected?: 
           </div>
           <span className="flex shrink-0 items-center gap-1 text-sm font-bold">
             <Star size={15} className="fill-sun text-sun-deep" />
-            {cafe.rating}
+            {cafe.reviews > 0 ? cafe.rating : "New"}
           </span>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">

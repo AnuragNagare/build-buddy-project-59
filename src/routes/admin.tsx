@@ -57,6 +57,7 @@ import {
 import { isFirebaseConfigured } from "@/lib/firebase";
 import {
   formatDate,
+  getCafeImage,
   type Amenity,
   type Cafe,
   type CafeReview,
@@ -882,7 +883,7 @@ function AdminCafesTab({
       rating: 4.8,
       reviews: 12,
       price: 149,
-      image: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1200&q=80",
+      image: "",
       amenities: ["Wi-Fi", "Power", "AC", "Food"],
       availability: "6 seats open",
       vibe: "Bright & social",
@@ -943,7 +944,7 @@ function AdminCafesTab({
             >
               <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
                 <img
-                  src={cafe.image}
+                  src={getCafeImage(cafe)}
                   alt={cafe.name}
                   className="h-full w-full object-cover"
                 />
@@ -1215,7 +1216,7 @@ function CafeEditModal({
             </label>
             <input
               type="url"
-              required
+              placeholder="Leave blank to show a representative photo"
               value={formData.image}
               onChange={(e) => setFormData({ ...formData, image: e.target.value })}
               className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"

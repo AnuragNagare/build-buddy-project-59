@@ -4,7 +4,7 @@ import { CalendarDays, LoaderCircle, MapPin, QrCode, XCircle } from "lucide-reac
 import { Button, ButtonLink } from "@/components/ui/button";
 import { useBooking } from "@/lib/booking-store";
 import { useAuth } from "@/lib/auth-store";
-import { formatDate, getCafe, today, type Booking } from "@/lib/workspot-data";
+import { formatDate, getCafe, getCafeImage, today, type Booking } from "@/lib/workspot-data";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/account/bookings")({
@@ -94,7 +94,7 @@ function Bookings() {
                 className="grid gap-5 rounded-xl border border-border bg-card p-5 sm:grid-cols-[150px_minmax(0,1fr)_auto]"
               >
                 <img
-                  src={cafe.image}
+                  src={getCafeImage(cafe)}
                   alt={cafe.name}
                   width={1200}
                   height={800}
