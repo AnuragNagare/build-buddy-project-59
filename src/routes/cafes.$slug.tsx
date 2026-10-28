@@ -7,6 +7,7 @@ import {
   Clock3,
   Coffee,
   Crown,
+  ExternalLink,
   MapPin,
   ShieldCheck,
   Volume2,
@@ -87,7 +88,14 @@ function CafeDetail() {
               height={800}
               className="h-full min-h-36 w-full rounded-xl object-cover object-left"
             />
-            <div className="relative overflow-hidden rounded-xl bg-sky/30">
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${cafe.name} ${cafe.address}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`Open directions to ${cafe.name} in Google Maps`}
+              aria-label={`Open directions to ${cafe.name} in Google Maps`}
+              className="group relative block overflow-hidden rounded-xl bg-sky/30 transition-all hover:bg-sky/45 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
+            >
               <div
                 className="absolute inset-0 opacity-50"
                 style={{
@@ -95,15 +103,18 @@ function CafeDetail() {
                   backgroundSize: "28px 28px",
                 }}
               />
-              <div className="relative grid h-full min-h-36 place-items-center text-center">
-                <MapPin className="text-coral" />
+              <div className="relative grid h-full min-h-36 place-items-center p-3 text-center">
+                <MapPin className="text-coral transition-transform group-hover:scale-110" />
                 <p className="font-bold">
                   {cafe.area}
                   <br />
-                  <span className="text-xs font-normal">Open directions</span>
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary underline underline-offset-2 group-hover:text-primary-deep">
+                    Open directions
+                    <ExternalLink size={12} className="inline opacity-80" />
+                  </span>
                 </p>
               </div>
-            </div>
+            </a>
           </div>
         </div>
 
@@ -119,10 +130,16 @@ function CafeDetail() {
                     </span>
                   )}
                 </div>
-                <p className="mt-2 flex items-center gap-1 text-muted-foreground">
-                  <MapPin size={16} />
-                  {cafe.address}
-                </p>
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${cafe.name} ${cafe.address}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline transition-colors w-fit text-sm"
+                  title="View address on Google Maps"
+                >
+                  <MapPin size={16} className="text-coral shrink-0" />
+                  <span>{cafe.address}</span>
+                </a>
               </div>
               <span className="h-fit shrink-0 rounded-full bg-sun px-3 py-1 text-sm font-bold">
                 ★ {cafe.rating}

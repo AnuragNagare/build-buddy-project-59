@@ -246,13 +246,46 @@ const demoAdminBookings: Booking[] = [
   },
 ];
 
+const LEGACY_SLUGS = new Set([
+  "blue-door-coffee",
+  "monsoon-desk-cafe",
+  "citrus-corner",
+  "paper-plane-cafe",
+  "studio-bean",
+  "yellow-kettle",
+]);
+
 export function getCustomLocalCafes(): Cafe[] {
   if (typeof window === "undefined") return cafes;
   try {
     const raw = window.localStorage.getItem("workspot_custom_cafes");
-    if (!raw) return cafes;
+    if (!raw) {
+      window.localStorage.setItem("workspot_custom_cafes", JSON.stringify(cafes));
+      return cafes;
+    }
     const parsed = JSON.parse(raw) as Cafe[];
-    return parsed.length > 0 ? parsed : cafes;
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      window.localStorage.setItem("workspot_custom_cafes", JSON.stringify(cafes));
+      return cafes;
+    }
+
+    // Check if the stored list contains obsolete placeholder slugs or lacks new curated cafes
+    const hasLegacyData = parsed.some((c) => LEGACY_SLUGS.has(c.slug));
+
+    // Extract genuine custom cafes created via admin / partner portal (not old defaults)
+    const customCreated = parsed.filter(
+      (c) => !LEGACY_SLUGS.has(c.slug) && !cafes.some((defaultCafe) => defaultCafe.slug === c.slug)
+    );
+
+    // Merge: Current authentic master cafes + any genuine newly registered vendor cafes
+    const merged = [...cafes, ...customCreated];
+
+    // If migration was needed or new authentic cafes were added, sync to localStorage
+    if (hasLegacyData || parsed.length < cafes.length) {
+      window.localStorage.setItem("workspot_custom_cafes", JSON.stringify(merged));
+    }
+
+    return merged;
   } catch {
     return cafes;
   }
