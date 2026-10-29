@@ -72,7 +72,10 @@ function Checkout() {
     queryFn: () => getLiveCafe(selection.cafeSlug),
     initialData: defaultCafe,
   });
-  const seat = cafe.seats.find((s) => s.id === selection.seatId);
+  const seatIds = selection.seatIds ?? [selection.seatId];
+  const chosenSeats = seatIds.map((id) => cafe.seats.find((s) => s.id === id)).filter((s) => s !== undefined);
+  const seatSummary = chosenSeats.map((s) => s.name).join(", ");
+  const counterTotal = (cafe.price || 149) * selection.duration * seatIds.length;
 
   const handleSendOtp = async () => {
     const rawDigits = phone.replace(/\D/g, "");
@@ -118,10 +121,10 @@ function Checkout() {
       createdAt: new Date().toISOString(),
       userId: user?.uid,
       userPhone: user?.phoneNumber ?? "+919876543210",
-      totalPrice: hourlyPrice * selection.duration,
+      totalPrice: hourlyPrice * selection.duration * seatIds.length,
       paymentMethod: "Pay at counter",
       paymentStatus: "pay_at_venue" as const,
-      seatName: seat?.name ?? `Seat ${selection.seatId}`,
+      seatName: seatSummary || `Seat ${selection.seatId}`,
     };
 
     const res = await addBooking(newBooking);
@@ -270,11 +273,11 @@ function Checkout() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Café hourly rate (pay at counter):</span>
-                    <span className="font-bold text-foreground">₹{cafe.price || 149} / hour</span>
+                    <span className="font-bold text-foreground">₹{cafe.price || 149} / hour / seat</span>
                   </div>
                   <div className="flex items-center justify-between border-t border-border/50 pt-2 font-bold">
                     <span>Estimated venue counter total:</span>
-                    <span className="text-foreground">₹{(cafe.price || 149) * selection.duration}</span>
+                    <span className="text-foreground">₹{counterTotal}</span>
                   </div>
                 </div>
 
@@ -303,7 +306,7 @@ function Checkout() {
                 date={formatDate(selection.date)}
                 time={selection.time}
                 duration={selection.duration}
-                seatName={seat?.name}
+                seatName={seatSummary || undefined}
               />
             </div>
 
@@ -314,7 +317,7 @@ function Checkout() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Pay at counter upon arrival</span>
-                <span className="font-bold">₹{(cafe.price || 149) * selection.duration}</span>
+                <span className="font-bold">₹{counterTotal}</span>
               </div>
             </div>
 

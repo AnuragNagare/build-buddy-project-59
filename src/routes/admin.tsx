@@ -66,6 +66,8 @@ import {
   type VendorApplication,
   type PendingReviewSubmission,
 } from "@/lib/workspot-data";
+import { FloorPlanEditor } from "@/components/floor-plan-editor";
+import { hashOwnerPin } from "@/lib/owner-auth-store";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin")({
@@ -1048,6 +1050,7 @@ function CafeEditModal({
 }) {
   const [formData, setFormData] = useState<Cafe>({ ...cafe });
   const [busy, setBusy] = useState(false);
+  const [ownerPin, setOwnerPin] = useState("");
 
   const toggleAmenity = (amenity: Amenity) => {
     setFormData((prev) => {
@@ -1064,7 +1067,10 @@ function CafeEditModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    await onSave(formData);
+    // A new owner PIN is stored only as a hash, bound to the owner phone
+    const pinHash =
+      ownerPin.length === 4 && formData.ownerPhone ? await hashOwnerPin(formData.ownerPhone, ownerPin) : null;
+    await onSave(pinHash ? { ...formData, ownerPinHash: pinHash } : formData);
     setBusy(false);
   };
 
@@ -1210,6 +1216,35 @@ function CafeEditModal({
             />
           </div>
 
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-bold uppercase text-muted-foreground">
+                Owner phone (dashboard login)
+              </label>
+              <input
+                type="tel"
+                value={formData.ownerPhone ?? ""}
+                onChange={(e) => setFormData({ ...formData, ownerPhone: e.target.value })}
+                placeholder="+91 98200 00000"
+                className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-muted-foreground">
+                Set owner PIN (4 digits)
+              </label>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                value={ownerPin}
+                onChange={(e) => setOwnerPin(e.target.value.replace(/\D/g, ""))}
+                placeholder={formData.ownerPinHash ? "PIN set — type to change" : "Not set"}
+                className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3 text-sm tracking-widest outline-none focus:border-primary"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="block text-xs font-bold uppercase text-muted-foreground">
               Cover Image URL
@@ -1347,34 +1382,6 @@ function AdminSeatsTab({
     return <p className="text-muted-foreground">No cafés available.</p>;
   }
 
-  const handleAddSeat = () => {
-    const nextId = `s${seats.length + 1}`;
-    const newSeat: Seat = {
-      id: nextId,
-      name: `Desk ${seats.length + 1}`,
-      type: "Desk",
-      status: "available",
-      x: 20 + ((seats.length * 20) % 60),
-      y: 20 + Math.floor(seats.length / 3) * 20,
-    };
-    setSeats([...seats, newSeat]);
-  };
-
-  const handleUpdateSeat = (index: number, updates: Partial<Seat>) => {
-    setSeats((prev) => {
-      const copy = [...prev];
-      const existing = copy[index];
-      if (existing) {
-        copy[index] = { ...existing, ...updates };
-      }
-      return copy;
-    });
-  };
-
-  const handleDeleteSeat = (index: number) => {
-    setSeats((prev) => prev.filter((_, i) => i !== index));
-  };
-
   const handleSaveFloorPlan = async () => {
     setBusy(true);
     await onSaveSeats({
@@ -1407,9 +1414,6 @@ function AdminSeatsTab({
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={handleAddSeat} className="gap-1 font-bold">
-            <Plus size={16} /> Add Seat
-          </Button>
           <Button onClick={handleSaveFloorPlan} disabled={busy} className="gap-1 font-bold">
             {busy ? (
               <LoaderCircle className="animate-spin" size={16} />
@@ -1421,139 +1425,7 @@ function AdminSeatsTab({
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-        {/* Visual Floor Plan Preview */}
-        <div className="rounded-xl border-2 border-foreground bg-card p-5 shadow-[6px_6px_0_var(--sky)]">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-display text-lg font-bold">Interactive Floor Map Preview</h3>
-            <span className="text-xs text-muted-foreground">{seats.length} total seats</span>
-          </div>
-
-          <div className="relative aspect-[4/3] overflow-hidden rounded-xl border-2 border-dashed border-foreground/30 bg-floor p-4">
-            <div className="absolute inset-x-8 top-3 h-7 rounded bg-sky/20 text-center text-[11px] font-bold leading-7 text-sky-deep">
-              WINDOW VIEW COUNTER
-            </div>
-            <div className="absolute bottom-4 left-6 right-6 h-7 rounded bg-foreground/10 text-center text-[11px] font-semibold leading-7">
-              BARISTA BAR & COUNTER
-            </div>
-
-            {seats.map((seat) => (
-              <div
-                key={seat.id}
-                className={cn(
-                  "absolute grid h-11 w-18 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-lg border-2 text-[10px] font-bold shadow-sm transition-all",
-                  seat.status === "available"
-                    ? "border-available-deep bg-available/30 text-foreground"
-                    : seat.status === "unavailable"
-                    ? "border-coral bg-coral/20 text-muted-foreground"
-                    : "border-border bg-muted text-muted-foreground opacity-60"
-                )}
-                style={{ left: `${seat.x}%`, top: `${seat.y}%` }}
-              >
-                <span>{seat.name}</span>
-                <span className="text-[9px] font-normal text-muted-foreground capitalize">
-                  {seat.status}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Seat Controls List */}
-        <div className="space-y-3 rounded-xl border border-border bg-card p-5">
-          <h3 className="font-display text-lg font-bold">Seats List & Status</h3>
-          <p className="text-xs text-muted-foreground">
-            Configure seat availability and coordinates for customers.
-          </p>
-
-          <div className="max-h-[500px] space-y-2.5 overflow-y-auto pr-1">
-            {seats.map((seat, index) => (
-              <div
-                key={seat.id}
-                className="rounded-lg border border-border bg-background p-3 text-xs"
-              >
-                <div className="flex items-center justify-between">
-                  <input
-                    type="text"
-                    value={seat.name}
-                    onChange={(e) => handleUpdateSeat(index, { name: e.target.value })}
-                    className="font-bold outline-none bg-transparent border-b border-dashed border-muted-foreground/40 pb-0.5"
-                  />
-                  <button
-                    onClick={() => handleDeleteSeat(index)}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-
-                <div className="mt-2.5 grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-muted-foreground">
-                      Status
-                    </label>
-                    <select
-                      value={seat.status}
-                      onChange={(e) =>
-                        handleUpdateSeat(index, {
-                          status: e.target.value as "available" | "unavailable" | "not-offered",
-                        })
-                      }
-                      className="mt-1 w-full rounded border border-border bg-card p-1 text-xs font-semibold"
-                    >
-                      <option value="available">Available</option>
-                      <option value="unavailable">Unavailable</option>
-                      <option value="not-offered">Not Offered</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] uppercase font-bold text-muted-foreground">
-                      Type
-                    </label>
-                    <select
-                      value={seat.type}
-                      onChange={(e) => handleUpdateSeat(index, { type: e.target.value })}
-                      className="mt-1 w-full rounded border border-border bg-card p-1 text-xs font-semibold"
-                    >
-                      <option value="Window">Window</option>
-                      <option value="Desk">Desk</option>
-                      <option value="Community">Community</option>
-                      <option value="Bar">Bar</option>
-                      <option value="Nook">Nook</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="mt-2 flex items-center gap-3">
-                  <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                    X%:
-                    <input
-                      type="number"
-                      min={5}
-                      max={95}
-                      value={seat.x}
-                      onChange={(e) => handleUpdateSeat(index, { x: Number(e.target.value) })}
-                      className="w-12 rounded border border-border bg-card px-1 py-0.5 text-xs text-foreground"
-                    />
-                  </label>
-                  <label className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                    Y%:
-                    <input
-                      type="number"
-                      min={5}
-                      max={95}
-                      value={seat.y}
-                      onChange={(e) => handleUpdateSeat(index, { y: Number(e.target.value) })}
-                      className="w-12 rounded border border-border bg-card px-1 py-0.5 text-xs text-foreground"
-                    />
-                  </label>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <FloorPlanEditor seats={seats} onChange={setSeats} />
     </div>
   );
 }

@@ -1,83 +1,124 @@
-# WorkSpot — Café List Fix & Generic Café Images Plan
+# WorkSpot — Floor-Plan Seat Booking, Café Layout Editor & In-App Booking Alerts
 
-Supersedes the earlier "Real Data & Free Reservation" plan (still in git history).
+Supersedes the earlier "Café List Fix & Generic Images" plan (done in commit `929d3db`, still in git history).
 
-## 1. Problems
+## 1. What was asked
 
-1. **Explore shows only 2 cafés for "Andheri"** ("Citrus Corner", "Sequel"). Neither matches
-   `src/lib/workspot-data.ts` (the code has 6 Andheri West cafés; "Citrus Corner" is a retired legacy slug).
-2. **Café photos are Unsplash stock images** that do not look like the real venues. Real photos will come
-   from cafés themselves when they register (`/partner/register`), so for now we need one consistent,
-   honest fallback.
+1. The seat-picking section on `/cafes/$slug` looks boring. Make it look like the supplied design
+   (`WorkSpot Café Seating Dashboard.png`) using the supplied top-down floor plan (`cafe-floor-plan-seating.jpg`).
+2. When a café registers, it should see this same floor plan and be able to **add or remove seats** to match its real layout.
+3. When a user books, check whether the café is **associated with WorkSpot** (a partner). If yes, send a **message/notification inside the app only** to that café.
 
-## 2. Root cause (hypothesis — verify in step A1 before changing code)
+## 2. What the design contains (analysis)
 
-`getLiveCafes()` in `src/lib/firebase-service.ts` returns the Firestore `cafes` collection **as-is** whenever it
-is non-empty. It never merges with the code list, and the legacy-slug cleanup only runs on the localStorage
-path. A stale seed in Firestore (old placeholder cafés, different ratings/distances from the code) therefore
-hides the current list. `Explore` then filters that list by name/area text, radius and amenities, so only
-what is in Firestore can ever show up.
+**Mockup page (`WorkSpot Café Seating Dashboard.png`, 1052×1494)**
+- Same page skeleton we already have: hero + side photo + "Open directions" tile, title/rating/Pro badge, amenities, the
+  booking sidebar, house rules. The hero is the generic "Representative photo" we already show, with its caption.
+- **"Choose a seat" section:** icon + heading + one-line subtitle, then a card with a **status legend row**
+  (Available / Unavailable / Selected / Not offered) and the **floor-plan image** with seat markers on top.
+- **Sidebar, below the booking card:** a "Seating legend" card (status meanings) and a "Seating types" card
+  (Single seat, 2-seater table, 4-seater table, Communal table, Booth).
+- **Rules card:** "Café seating rules" with an icon, replacing today's plain "House rules" box.
 
-## 3. Part A — Fix the café list
+**Floor plan (`cafe-floor-plan-seating.jpg`, 542×434)**
+- A top-down illustration with the Bar/Counter at the top, an Entrance on the left, and a Café Counter at the bottom.
+- Seat markers are small circles at each chair: green = available, dark green with a ring = selected, grey = not offered, red = unavailable.
+- Layout: 2 banquettes on the left (3 seats each), 2 long communal tables in the centre (8 seats each), 3 round tables on the right
+  (4 seats each), 3 booths at the bottom (2 seats each), plus 2 lounge chairs. Roughly **40 individually bookable chairs**
+  (today's default is 10 abstract seats on a plain grid).
+- The markers in the file are part of the picture. The app has to draw its own live markers on top, so we need a clean version of the layout without baked-in dots (Q2).
 
-- **A1. Verify (read-only).** List the docs in Firestore `cafes` (slug, name, area, distance, image) and confirm
-  stale docs such as `citrus-corner` exist. No writes.
-- **A2. Merge strategy in `getLiveCafes()` / `getLiveCafe()`.**
-  - Base = code list (`cafes`), override per slug by the Firestore doc, plus any extra Firestore docs
-    (admin-approved vendor cafés).
-  - Drop legacy slugs (`LEGACY_SLUGS`) from the Firestore result too, not only from localStorage.
-  - Keep the existing fallback to local data when Firestore is unconfigured or errors.
-  - Keep mock domain data isolated from booking state (per AGENTS.md); the merge lives in the service layer.
-- **A3. Clean the stale Firestore docs.** Delete legacy-slug docs and re-run `bun run db:seed` so Firestore matches
-  the current list. Destructive and shared, so it needs explicit approval first (see Q2).
-- **A4. More Andheri cafés.** Add more venues to the seed/data. The seed script currently has about 12 hand-picked
-  cafés, and its OpenStreetMap fetch is capped at 60 results with random distances and no photos. Options in Q1.
-- **A5. Search quality (small).** Make the text search match area synonyms ("Andheri" matches "Andheri West/East",
-  "Lokhandwala", "Oshiwara") and confirm the 5 km default radius isn't hiding valid cafés.
+**Current code (what we build on)**
+- `SeatGrid` in `src/components/booking-ui.tsx` draws each seat as a labelled box at `x/y` percentages on a plain floor.
+  `Seat` already has `id, name, type, status, x, y`, so positioning on an image needs no data-model change for x/y.
+- Admin already has a seat editor (`AdminSeatsTab` in `admin.tsx`: add/rename/delete seats, Save Floor Plan).
+- Manager "Seats & availability" has only on/off toggles that don't persist, and "Add seat" does nothing useful.
+- Partner registration collects only a seat **count** (`seatsCount`). On approval, seats are auto-generated on a plain grid.
+- Seat `status` is static data. It is **not** derived from existing bookings. Only a Firestore transaction blocks double-booking at confirm time.
+- There is **no notification system**, no café-owner login (the manager page is a demo with a hardcoded café), and no link from a café to an owner.
 
-## 4. Part B — Generic café images (interim)
+## 3. Part A — Floor-plan seat picker (customer side)
 
-Goal: every café without a real, café-supplied photo shows a neutral, consistent placeholder. No scraping of
-Google or other sites.
+- **A1. Assets.** Add the floor-plan image to `src/assets/` (replacing the baked-in dots, see Q2) as the default layout.
+- **A2. Data model** (additive, in `workspot-data.ts`):
+  - `Cafe.floorPlan?: { image: string; aspect: number }`. If missing, use the default plan.
+  - `Seat.type` becomes a defined set: `single | table2 | table4 | communal | booth`. Add optional `tableId` and `capacity` for grouping.
+  - Keep `x/y` as percentages of the plan image so layouts scale on any screen.
+- **A3. New `FloorPlanSeatPicker`** (replaces the body of `SeatGrid`, same props so callers don't change): image as background,
+  absolutely positioned circular markers, hover tooltip (name, type, status), keyboard focus + `aria-label`, selected ring,
+  mobile: horizontal pinch/scroll container with a minimum width so markers stay tappable.
+- **A4. Live availability.** Mark a seat Unavailable when an `upcoming` booking exists for the same café, seat, date and time
+  window (overlapping duration), so the map reflects the date/time chosen in the sidebar. Today it ignores bookings.
+- **A5. Page layout.** On `/cafes/$slug`: new "Choose a seat" header, status legend row inside the card, sidebar gets "Seating legend"
+  and "Seating types" cards, "Café seating rules" card. Keep the existing sticky reserve card and mobile bottom bar.
+- **A6. Cafés without a custom layout** (OSM-seeded, new partners) show the default floor plan with the default seat set, plus a small note
+  that the layout is representative until the café customises it.
 
-- **B1. Image pool.** Use the 4 existing local assets (`src/assets/workspot-cafe-1..4.jpg`, currently imported
-  but unused) as the generic set. Optionally add a few more licensed or free-to-use images.
-- **B2. Resolver helper** (in `src/lib/workspot-data.ts`, next to the data): `getCafeImage(cafe)`.
-  - Returns `cafe.image` if it's a real uploaded photo.
-  - Otherwise picks a generic image deterministically from a hash of the slug, so a café always gets the same
-    picture and neighbours don't all look identical.
-- **B3. Data change.** Remove the Unsplash stock URLs from the hand-picked cafés (and from the seed script's
-  fallback list), leaving `image` empty until a café uploads one. Add an optional `imageIsGeneric` flag if needed.
-- **B4. Use the helper everywhere an image renders:** `cafe-card.tsx`, `cafes.$slug.tsx` (hero + side image),
-  `checkout.tsx`, `account.bookings.tsx`, `index.tsx` hero, and the admin/manager previews.
-- **B5. Honesty label.** A small "Representative photo" caption/badge on generic images, so users don't think they
-  are the venue. Hidden once a real photo exists (see Q4).
-- **B6. Hook for real photos (later).** The partner form already takes a cover image URL. Real uploads (Firebase
-  Storage) are a separate task; this plan only makes sure `image` set on approval wins over the generic fallback.
+## 4. Part B — Café layout editor (partner side)
 
-## 5. Verification
+- **B1. Editor component** `FloorPlanEditor`, shared by `/manager` (Seats tab) and `/admin` (Seats tab):
+  - Shows the café's floor plan with draggable seat markers.
+  - **Add seat** (choose type, drops onto the plan), **remove seat**, rename, change type, toggle "offered / not offered".
+  - Seat count and "N seats open" update on save. Auto-numbered names ("Table 3 · Seat 2").
+  - Validation: at least 1 offered seat, unique ids, and a warning when removing a seat that has upcoming bookings (not deleting those bookings).
+  - Save writes `seats` to the café (Firestore `cafes/{slug}` + localStorage fallback via `upsertCafeAdmin`).
+- **B2. Registration.** On `/partner/register` replace the plain "seats count" with a layout step: start from the default plan, add/remove seats,
+  and save it as `layoutSeats` on the `VendorApplication`. On approval, `approveAndPublishVendorCafe` uses those seats instead of generating a plain grid.
+- **B3. Manager Seats tab** gets the editor in place of the non-working toggle list. Pricing/availability panel stays.
+- **B4. Own floor-plan upload** (a café's real plan image) is **out of scope** for now. The default plan is used until a later upload feature (Q3).
 
-- Explore with `Andheri` shows all Andheri cafés in code (6+), none of the legacy ones.
-- Firestore unconfigured (demo mode) still works, and Firestore configured and empty still works.
-- Admin-approved vendor café still appears and uses its uploaded `coverImage`.
-- Every card, detail page, checkout, bookings and confirmation view shows an image or the generic fallback; no
-  broken images.
-- `bun run test` (routing tests) and `bun run lint` pass; check `/explore?q=Andheri` in the browser.
+## 5. Part C — In-app booking notifications to partner cafés
 
-## 6. Out of scope
+- **C1. "Associated with us" check.** A café is a partner if it is not OSM-only (`source !== "osm"`) and it is either a curated café or was
+  created through an approved `VendorApplication`. Add an explicit `partner: true` and `ownerId`/`contactEmail` to `Cafe` and set them on approval and for the curated list.
+- **C2. Notification record** (Firestore `notifications` collection, localStorage fallback like the rest of the app):
+  `{ id, cafeSlug, type: "booking_created" | "booking_cancelled", bookingId, seatName, date, time, duration, guestPhone, createdAt, read }`.
+- **C3. Trigger.** After `addBooking` succeeds in `booking-store.tsx` (and after `cancelBooking`), if the café is a partner, create the notification.
+  Non-partner (OSM) cafés: booking still works, but no notification is sent and the confirmation page says
+  "This café isn't on WorkSpot yet — we'll let them know" or similar copy (Q5).
+- **C4. Where cafés see it.** New "Notifications" area in `/manager`: bell + unread count in the sidebar, a list (newest first),
+  mark as read, and a toast when a new one arrives while the page is open (Firestore realtime listener when configured, polling/`storage` event in demo mode).
+- **C5. Admin visibility.** Optional: admin Bookings tab shows whether each booking triggered a notification.
+- **Limits of "in-app only".** The café only sees the alert when someone opens the manager page. There is no email/SMS/push (Q4).
 
-Google Places / Google Images fetching, real photo uploads and storage, a real map (Mapbox or Google), and
-live seat availability from existing bookings.
+## 6. Order of work and verification
 
-## 7. Open questions
+1. Part A (picker + page layout + live availability), then check visually against the mockup at desktop and mobile widths.
+2. Part B (editor, then registration, then manager tab).
+3. Part C (data + trigger + manager UI).
+4. Checks per part: `bun run test` (add tests for availability overlap, partner check and notification creation), lint,
+   and a browser pass: book a seat as a customer, see the seat turn red, see the notification in `/manager` for a partner café and none for an OSM café.
+- Commit per part so each can be pushed and reverted on its own (the repo is synced to Lovable; no history rewriting).
 
-- **Q1. Where do the extra Andheri cafés come from?** (a) a list you give me, (b) the OpenStreetMap seeder
-  (free, but names and addresses only, no photos or amenities, and quality varies), or (c) I add a curated set and
-  you review it. Should this cover Andheri only, or all of Mumbai?
-- **Q2. May I delete stale docs in your Firestore project and re-seed it?** If not, the merge in A2 hides them in
-  the app but they stay in the database.
-- **Q3. Should OSM-seeded cafés be bookable?** They have no real seat layouts or partner agreement, so the options
-  are to mark them "Not yet partnered / listing only" or give them a default seat grid like today.
-- **Q4. Generic photos:** replace all existing Unsplash photos, including on the hand-picked real cafés? Show a
-  "Representative photo" label, or none?
-- **Q5. Image source:** is using the 4 existing assets enough, or do you have your own generic images to add?
+## 7. Out of scope
+
+Real café-owner login/accounts, email/SMS/WhatsApp/push notifications, per-café floor-plan image upload, drag-to-draw custom floor plans,
+table-level (group) booking and payments.
+
+## 8. Decisions (from the answers) and build status
+
+- Q1: book one or **several single chairs** in one reservation (max 6); no whole-table booking. One booking holds a `seatIds` list.
+- Q2: floor plan = `Modern Café Floor Plan with Greenery.png`, saved as `src/assets/workspot-floor-plan.jpg`; 42 chair positions checked against the image.
+- Q3: every café uses this one layout for now (legacy 10-seat cafés are swapped to it when loaded).
+- Q4: in-app notifications only; simple owner login = registered phone + 4-digit PIN (stored as a SHA-256 hash).
+- Q5: non-partner (OSM) cafés stay bookable; the confirmation page text is unchanged.
+- Q6: partner = any café not tagged `source: "osm"` (to be tightened later).
+- Q7: seats show unavailable only when an upcoming booking overlaps the chosen date and time.
+
+Built: Part A (picker, legend and types cards, live availability), Part B (editor in registration, `/manager`, admin),
+Part C (notifications and owner login). Not done: removing a seat that has upcoming bookings gives no warning yet;
+browser visual check of the new page layout is still pending.
+
+## 9. Open questions (answered above)
+
+- **Q1. Book a chair or a whole table?** The current rule is one booking = one person = one seat, so the plan above books individual chairs.
+  Do you also want "book the whole table" (e.g. 4-seater for a team)?
+- **Q2. Floor-plan file.** The supplied JPG (542×434) is low resolution and has green/grey dots painted into the picture. Do you have a larger version **without** the dots?
+  If not, I can use it as is and cover/replace the dots with live markers, but it will look soft on big screens.
+- **Q3. One layout for all cafés?** For now every café shows this same plan and only the number/types of seats differ. Is that acceptable until cafés can upload their own plan,
+  or must the real-café entries (Third Wave, Subko, etc.) each get a different layout?
+- **Q4. Notifications.** Is in-app only (shown inside `/manager`) enough for now? And since there is no café login yet, should `/manager` keep a café selector for the demo,
+  or do you want a simple owner login (e.g. the phone/email from registration) in this round?
+- **Q5. Non-partner (OSM) cafés.** Should customers still be able to book them? If yes, what should the confirmation page say about the café not being notified?
+- **Q6. Which cafés are "associated with us"?** My proposal: the 12 curated cafés plus anything approved from `/partner/register`. Is that right, or should only paid Pro partners get notifications?
+- **Q7. Seat availability by time.** OK to show a seat as unavailable only if it is booked for an overlapping time on the chosen date (needs the booking list loaded from Firestore on the café page)?

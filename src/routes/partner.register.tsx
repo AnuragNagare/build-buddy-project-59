@@ -33,7 +33,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { submitVendorApplication } from "@/lib/firebase-service";
-import { type Amenity } from "@/lib/workspot-data";
+import { FloorPlanEditor } from "@/components/floor-plan-editor";
+import { hashOwnerPin } from "@/lib/owner-auth-store";
+import { defaultFloorSeats, type Amenity, type Seat } from "@/lib/workspot-data";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/partner/register")({
@@ -87,7 +89,8 @@ function PartnerRegisterPage() {
   const [contactEmail, setContactEmail] = useState("");
   const [price, setPrice] = useState(149);
   const [hours, setHours] = useState("8:30 AM–8:30 PM IST");
-  const [seatsCount, setSeatsCount] = useState(6);
+  const [layoutSeats, setLayoutSeats] = useState<Seat[]>(defaultFloorSeats);
+  const [ownerPin, setOwnerPin] = useState("");
   const [vibe, setVibe] = useState("Bright, quiet & social");
   const [description, setDescription] = useState("");
   const [amenities, setAmenities] = useState<Amenity[]>(["Wi-Fi", "Power", "AC", "Food"]);
@@ -121,7 +124,6 @@ function PartnerRegisterPage() {
     setContactEmail("sameer@coppermug.in");
     setPrice(159);
     setHours("8:00 AM–9:00 PM IST");
-    setSeatsCount(8);
     setVibe("Calm, warm wooden interiors & natural daylight");
     setDescription(
       "A sun-drenched café with spacious oak tables, high-speed Wi-Fi, power strips at every booth, and specialty single-origin coffees."
@@ -137,6 +139,16 @@ function PartnerRegisterPage() {
   const validateForm = () => {
     if (!cafeName.trim() || !address.trim() || !contactPhone.trim()) {
       setError("Please fill in all required venue identity and contact fields.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return false;
+    }
+    if (!/^\d{4}$/.test(ownerPin)) {
+      setError("Please choose a 4-digit owner PIN. You will use it with your phone number to sign in.");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return false;
+    }
+    if (!layoutSeats.some((seat) => seat.status === "available")) {
+      setError("Offer at least one seat on your floor plan.");
       window.scrollTo({ top: 0, behavior: "smooth" });
       return false;
     }
@@ -159,7 +171,9 @@ function PartnerRegisterPage() {
         vibe,
         description: description.trim() || `A work-friendly space at ${cafeName.trim()} in ${area}.`,
         amenities,
-        seatsCount,
+        seatsCount: layoutSeats.filter((seat) => seat.status === "available").length,
+        layoutSeats,
+        ownerPinHash: await hashOwnerPin(contactPhone, ownerPin),
         coverImage:
           coverImage.trim(),
         videoUrl: videoUrl.trim() || undefined,
@@ -430,6 +444,23 @@ function PartnerRegisterPage() {
                 className="mt-1.5 min-h-12 w-full rounded-xl border border-border bg-background px-4 text-sm outline-none focus:border-primary"
               />
             </div>
+            <div>
+              <label className="block text-xs font-bold uppercase text-muted-foreground">
+                Owner PIN (4 digits) *
+              </label>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                value={ownerPin}
+                onChange={(e) => setOwnerPin(e.target.value.replace(/\D/g, ""))}
+                placeholder="••••"
+                className="mt-1.5 min-h-12 w-full rounded-xl border border-border bg-background px-4 text-sm font-bold tracking-widest outline-none focus:border-primary"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Sign in to your café dashboard with your phone number and this PIN.
+              </p>
+            </div>
           </div>
         </section>
 
@@ -469,14 +500,9 @@ function PartnerRegisterPage() {
               <label className="block text-xs font-bold uppercase text-muted-foreground">
                 Dedicated Work Seats Count
               </label>
-              <input
-                type="number"
-                min={2}
-                max={25}
-                value={seatsCount}
-                onChange={(e) => setSeatsCount(Number(e.target.value))}
-                className="mt-1.5 min-h-12 w-full rounded-xl border border-border bg-background px-4 text-sm font-semibold outline-none focus:border-primary"
-              />
+              <p className="mt-1.5 flex min-h-12 items-center rounded-xl border border-border bg-muted px-4 text-sm font-bold">
+                {layoutSeats.filter((seat) => seat.status === "available").length} seats (set in the seat layout section)
+              </p>
             </div>
 
             <div>
@@ -517,6 +543,25 @@ function PartnerRegisterPage() {
               placeholder="Describe your seating arrangements, lighting, noise level, and what makes your café a great workspace..."
               className="mt-1.5 w-full rounded-xl border border-border bg-background p-3 text-sm outline-none focus:border-primary"
             />
+          </div>
+        </section>
+
+        {/* Seat layout on the floor plan */}
+        <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <div className="flex items-center gap-2 border-b border-border pb-3">
+            <span className="grid size-8 place-items-center rounded-lg bg-primary/10 text-primary">
+              <Armchair size={18} />
+            </span>
+            <div>
+              <h2 className="font-display text-lg font-bold">Seat layout</h2>
+              <p className="text-xs text-muted-foreground">
+                Start from our standard café floor plan, then add, remove or move chairs to match your space.
+                You can change this later from your dashboard.
+              </p>
+            </div>
+          </div>
+          <div className="mt-5">
+            <FloorPlanEditor seats={layoutSeats} onChange={setLayoutSeats} />
           </div>
         </section>
 

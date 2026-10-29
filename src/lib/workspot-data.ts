@@ -2,10 +2,13 @@ import cafe1 from "@/assets/workspot-cafe-1.jpg";
 import cafe2 from "@/assets/workspot-cafe-2.jpg";
 import cafe3 from "@/assets/workspot-cafe-3.jpg";
 import cafe4 from "@/assets/workspot-cafe-4.jpg";
+import floorPlanImage from "@/assets/workspot-floor-plan.jpg";
 
 export type Amenity = "Wi-Fi" | "Power" | "AC" | "Quiet" | "Food" | "Ergonomic";
 export type SeatStatus = "available" | "unavailable" | "not-offered";
-export type Seat = { id: string; name: string; type: string; status: SeatStatus; x: number; y: number };
+export type SeatKind = "single" | "table2" | "table4" | "communal" | "booth";
+// x/y are percentages of the floor-plan image; tableId groups chairs that belong to one table or booth.
+export type Seat = { id: string; name: string; type: string; status: SeatStatus; x: number; y: number; tableId?: string };
 export type CafeReview = { id: string; author: string; rating: number; date: string; comment: string };
 export type Cafe = {
   slug: string; name: string; area: string; address: string; distance: number; rating: number;
@@ -15,8 +18,13 @@ export type Cafe = {
   tier?: "free" | "pro";
   lat?: number;
   lon?: number;
+  // "osm" = listed from OpenStreetMap only, not a WorkSpot partner (no booking notifications).
+  source?: "osm";
+  ownerPhone?: string;
+  ownerPinHash?: string;
 };
-export type BookingSelection = { cafeSlug: string; date: string; time: string; duration: number; seatId: string };
+// seatId is the first chosen chair; seatIds lists every chair when several are booked together.
+export type BookingSelection = { cafeSlug: string; date: string; time: string; duration: number; seatId: string; seatIds?: string[] };
 export type Booking = BookingSelection & {
   id: string;
   status: "upcoming" | "past" | "cancelled";
@@ -55,6 +63,22 @@ export type VendorApplication = {
   paidAmount?: number;
   paymentStatus?: "unpaid" | "paid";
   paymentMethod?: string;
+  layoutSeats?: Seat[];
+  ownerPinHash?: string;
+};
+
+export type CafeNotification = {
+  id: string;
+  cafeSlug: string;
+  type: "booking_created" | "booking_cancelled";
+  bookingId: string;
+  seatName: string;
+  date: string;
+  time: string;
+  duration: number;
+  guestPhone?: string;
+  createdAt: string;
+  read: boolean;
 };
 
 export type PendingReviewSubmission = {
@@ -69,11 +93,71 @@ export type PendingReviewSubmission = {
   submittedAt: string;
 };
 
-const seatNames = ["Window 1", "Window 2", "Window 3", "Community 1", "Community 2", "Community 3", "Bar 1", "Bar 2", "Nook 1", "Nook 2"];
-const makeSeats = (offset = 0): Seat[] => seatNames.map((name, i) => ({
-  id: `s${i + 1}`, name, type: name.split(" ")[0] ?? "Seat", status: (i + offset) % 5 === 2 ? "unavailable" : (i + offset) % 7 === 4 ? "not-offered" : "available",
-  x: 12 + (i % 3) * 31, y: 12 + Math.floor(i / 3) * 25,
-}));
+export const floorPlan = { image: floorPlanImage, aspect: 1536 / 1024 };
+
+export const seatKindLabels: Record<SeatKind, { label: string; hint: string }> = {
+  single: { label: "Single seat", hint: "1 person" },
+  table2: { label: "2-seater table", hint: "2 people" },
+  table4: { label: "4-seater table", hint: "4 people" },
+  communal: { label: "Communal table", hint: "Best for groups" },
+  booth: { label: "Booth", hint: "More privacy" },
+};
+
+// Chair positions in pixels of the 1536x1024 floor-plan image.
+const planSeatGroups: { tableId: string; name: string; type: SeatKind; chairs: [number, number][] }[] = [
+  { tableId: "banquette-1", name: "Banquette 1", type: "booth", chairs: [[205, 190], [205, 243], [205, 297]] },
+  { tableId: "banquette-2", name: "Banquette 2", type: "booth", chairs: [[205, 418], [205, 473], [205, 527]] },
+  {
+    tableId: "communal-a", name: "Communal A", type: "communal",
+    chairs: [370, 430, 490, 550].flatMap((y): [number, number][] => [[518, y], [638, y]]),
+  },
+  {
+    tableId: "communal-b", name: "Communal B", type: "communal",
+    chairs: [370, 430, 490, 550].flatMap((y): [number, number][] => [[825, y], [945, y]]),
+  },
+  { tableId: "round-1", name: "Round 1", type: "table4", chairs: [[1220, 290], [1298, 290], [1220, 350], [1298, 350]] },
+  { tableId: "round-2", name: "Round 2", type: "table4", chairs: [[1220, 427], [1298, 427], [1220, 487], [1298, 487]] },
+  { tableId: "round-3", name: "Round 3", type: "table4", chairs: [[1220, 570], [1298, 570], [1220, 630], [1298, 630]] },
+  { tableId: "booth-1", name: "Booth 1", type: "booth", chairs: [[474, 733], [474, 798]] },
+  { tableId: "booth-2", name: "Booth 2", type: "booth", chairs: [[718, 733], [718, 798]] },
+  { tableId: "booth-3", name: "Booth 3", type: "booth", chairs: [[968, 733], [968, 798]] },
+  { tableId: "lounge", name: "Lounge", type: "single", chairs: [[1195, 783], [1303, 795]] },
+];
+
+const toPercent = (value: number, total: number) => Math.round((value / total) * 1000) / 10;
+
+/** The default café layout: one bookable seat per chair on the shared floor plan. */
+export const defaultFloorSeats = (): Seat[] => {
+  let n = 0;
+  return planSeatGroups.flatMap((group) =>
+    group.chairs.map(([x, y], i) => {
+      n += 1;
+      return {
+        id: `s${n}`,
+        name: `${group.name} · Seat ${i + 1}`,
+        type: group.type,
+        status: "available" as const,
+        x: toPercent(x, 1536),
+        y: toPercent(y, 1024),
+        tableId: group.tableId,
+      };
+    }),
+  );
+};
+
+const makeSeats = (_offset = 0): Seat[] => defaultFloorSeats();
+
+/** Cafés saved before the floor plan existed have seats on the old plain grid; give them the default layout. */
+export const withFloorPlan = <T extends { seats: Seat[] }>(cafe: T): T =>
+  cafe.seats.some((seat) => seat.tableId) ? cafe : { ...cafe, seats: defaultFloorSeats() };
+
+/** Whether two bookings on the same day overlap; times are "HH:MM" and durations are in hours. */
+export const timesOverlap = (aTime: string, aDuration: number, bTime: string, bDuration: number) => {
+  const toHours = (t: string) => Number(t.slice(0, 2)) + Number(t.slice(3, 5)) / 60;
+  const aStart = toHours(aTime);
+  const bStart = toHours(bTime);
+  return aStart < bStart + bDuration && bStart < aStart + aDuration;
+};
 
 export const today = () => new Date().toISOString().slice(0, 10);
 

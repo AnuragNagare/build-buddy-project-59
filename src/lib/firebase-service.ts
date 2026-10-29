@@ -16,7 +16,11 @@ import {
   cafes,
   getCafe,
   today,
+  defaultFloorSeats,
+  timesOverlap,
+  withFloorPlan,
   type Cafe,
+  type CafeNotification,
   type Booking,
   type VendorApplication,
   type Seat,
@@ -45,7 +49,7 @@ export async function getLiveCafes(): Promise<Cafe[]> {
     const bySlug = new Map<string, Cafe>(cafes.map((cafe) => [cafe.slug, cafe]));
     snapshot.forEach((docSnap) => {
       if (LEGACY_SLUGS.has(docSnap.id)) return;
-      bySlug.set(docSnap.id, { slug: docSnap.id, ...(docSnap.data() as Omit<Cafe, "slug">) });
+      bySlug.set(docSnap.id, withFloorPlan({ slug: docSnap.id, ...(docSnap.data() as Omit<Cafe, "slug">) }));
     });
     return Array.from(bySlug.values());
   } catch (err) {
@@ -66,7 +70,7 @@ export async function getLiveCafe(slug: string): Promise<Cafe> {
   try {
     const cafeDoc = await getDoc(doc(db, "cafes", slug));
     if (cafeDoc.exists()) {
-      return { slug: cafeDoc.id, ...(cafeDoc.data() as Omit<Cafe, "slug">) };
+      return withFloorPlan({ slug: cafeDoc.id, ...(cafeDoc.data() as Omit<Cafe, "slug">) });
     }
   } catch (err) {
     console.warn(`Error fetching cafe '${slug}' from Firestore:`, err);
@@ -91,20 +95,27 @@ export async function createBookingWithConcurrencyCheck(
 
   try {
     await runTransaction(db, async (transaction) => {
-      // 1. Check for conflicting active bookings on the exact seat & time slot
+      // 1. Check for an active booking on the same seat whose time window overlaps this one
       const bookingsRef = collection(db, "bookings");
       const conflictQuery = query(
         bookingsRef,
         where("cafeSlug", "==", booking.cafeSlug),
-        where("seatId", "==", booking.seatId),
         where("date", "==", booking.date),
-        where("time", "==", booking.time),
         where("status", "==", "upcoming")
       );
 
+      const wanted = seatIdsOf(booking);
       const conflictSnapshot = await getDocs(conflictQuery);
-      if (!conflictSnapshot.empty) {
-        throw new Error("Seat is already reserved for this time slot. Please choose another seat.");
+      const hasOverlap = conflictSnapshot.docs.some((docSnap) => {
+        const data = docSnap.data();
+        const taken = seatIdsOf({ seatId: data["seatId"], seatIds: data["seatIds"] });
+        return (
+          taken.some((id) => wanted.includes(id)) &&
+          timesOverlap(booking.time, booking.duration, data["time"], data["duration"])
+        );
+      });
+      if (hasOverlap) {
+        throw new Error("One of the selected seats is already reserved for this time slot. Please choose another.");
       }
 
       // 2. Commit the new booking document
@@ -175,6 +186,166 @@ export async function cancelLiveBooking(bookingId: string): Promise<boolean> {
     console.error(`Failed to cancel booking '${bookingId}' in Firestore:`, err);
     return false;
   }
+}
+
+export type SeatHold = { seatIds: string[]; time: string; duration: number };
+
+const seatIdsOf = (b: { seatId: string; seatIds?: string[] }) => b.seatIds ?? [b.seatId];
+
+/**
+ * Seats already reserved on a given day (upcoming bookings only), so the seat map can show them as taken.
+ * Only seat/time fields are returned; guest details never reach the café page.
+ */
+export async function getSeatHolds(cafeSlug: string, date: string): Promise<SeatHold[]> {
+  const holds: SeatHold[] = [];
+
+  if (isFirebaseConfigured && db) {
+    try {
+      const q = query(
+        collection(db, "bookings"),
+        where("cafeSlug", "==", cafeSlug),
+        where("date", "==", date),
+        where("status", "==", "upcoming")
+      );
+      const snapshot = await getDocs(q);
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        holds.push({ seatIds: seatIdsOf({ seatId: data["seatId"], seatIds: data["seatIds"] }), time: data["time"], duration: data["duration"] });
+      });
+      return holds;
+    } catch (err) {
+      console.warn("Could not read seat reservations from Firestore, using local bookings:", err);
+    }
+  }
+
+  try {
+    if (typeof window !== "undefined") {
+      const raw = window.localStorage.getItem("workspot-bookings");
+      const local = raw ? (JSON.parse(raw) as Booking[]) : [];
+      local
+        .filter((b) => b.cafeSlug === cafeSlug && b.date === date && b.status === "upcoming")
+        .forEach((b) => holds.push({ seatIds: seatIdsOf(b), time: b.time, duration: b.duration }));
+    }
+  } catch {
+    // Ignore malformed local storage
+  }
+  return holds;
+}
+
+// -----------------------------------------------------------------------------
+// In-app booking notifications for partner cafés
+// -----------------------------------------------------------------------------
+
+export const NOTIFICATIONS_STORAGE_KEY = "workspot_notifications";
+
+/** Cafés listed only from OpenStreetMap are not partners; everything else is. */
+export const isPartnerCafe = (cafe: Pick<Cafe, "source">) => cafe.source !== "osm";
+
+const readLocalNotifications = (): CafeNotification[] => {
+  try {
+    if (typeof window === "undefined") return [];
+    const raw = window.localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as CafeNotification[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeLocalNotifications = (items: CafeNotification[]) => {
+  try {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(items));
+    }
+  } catch {
+    // Ignore storage quota errors
+  }
+};
+
+/**
+ * Tell a partner café about a booking event. Does nothing for non-partner (OSM-only) cafés.
+ * Returns whether a notification was created.
+ */
+export async function notifyCafeOfBooking(
+  booking: Booking,
+  type: CafeNotification["type"]
+): Promise<boolean> {
+  const cafe = await getLiveCafe(booking.cafeSlug);
+  if (!isPartnerCafe(cafe)) return false;
+
+  const notification: CafeNotification = {
+    id: `NTF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    cafeSlug: booking.cafeSlug,
+    type,
+    bookingId: booking.id,
+    seatName: booking.seatName ?? `Seat ${booking.seatId}`,
+    date: booking.date,
+    time: booking.time,
+    duration: booking.duration,
+    ...(booking.userPhone ? { guestPhone: booking.userPhone } : {}),
+    createdAt: new Date().toISOString(),
+    read: false,
+  };
+
+  if (isFirebaseConfigured && db) {
+    try {
+      await setDoc(doc(db, "notifications", notification.id), notification);
+    } catch (err) {
+      console.warn("Firestore notification write failed, keeping local copy:", err);
+    }
+  }
+  writeLocalNotifications([notification, ...readLocalNotifications()]);
+  return true;
+}
+
+export async function getNotificationsForCafe(cafeSlug: string): Promise<CafeNotification[]> {
+  const byId = new Map<string, CafeNotification>();
+  readLocalNotifications()
+    .filter((n) => n.cafeSlug === cafeSlug)
+    .forEach((n) => byId.set(n.id, n));
+
+  if (isFirebaseConfigured && db) {
+    try {
+      const snapshot = await getDocs(query(collection(db, "notifications"), where("cafeSlug", "==", cafeSlug)));
+      snapshot.forEach((docSnap) => {
+        const live = docSnap.data() as CafeNotification;
+        // A locally marked-read copy wins so the badge doesn't flicker back
+        byId.set(live.id, byId.get(live.id)?.read ? { ...live, read: true } : live);
+      });
+    } catch (err) {
+      console.warn("Could not read notifications from Firestore:", err);
+    }
+  }
+  return Array.from(byId.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function markNotificationsRead(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  writeLocalNotifications(readLocalNotifications().map((n) => (ids.includes(n.id) ? { ...n, read: true } : n)));
+
+  const firestore = db;
+  if (isFirebaseConfigured && firestore) {
+    await Promise.all(
+      ids.map((id) =>
+        updateDoc(doc(firestore, "notifications", id), { read: true }).catch((err) =>
+          console.warn(`Could not mark notification ${id} read:`, err)
+        )
+      )
+    );
+  }
+}
+
+/** Find the partner café whose registered owner phone and PIN hash match (simple owner login). */
+export async function findCafeByOwner(phone: string, pinHash: string): Promise<Cafe | null> {
+  const digits = phone.replace(/\D/g, "").slice(-10);
+  const all = await getLiveCafes();
+  return (
+    all.find(
+      (c) =>
+        c.ownerPhone &&
+        c.ownerPhone.replace(/\D/g, "").slice(-10) === digits &&
+        c.ownerPinHash === pinHash
+    ) ?? null
+  );
 }
 
 // -----------------------------------------------------------------------------
@@ -279,7 +450,7 @@ export function getCustomLocalCafes(): Cafe[] {
     );
 
     // Merge: Current authentic master cafes + any genuine newly registered vendor cafes
-    const merged = [...cafes, ...customCreated];
+    const merged = [...cafes, ...customCreated].map(withFloorPlan);
 
     // If migration was needed or new authentic cafes were added, sync to localStorage
     if (hasLegacyData || parsed.length < cafes.length) {
@@ -628,19 +799,9 @@ export async function approveAndPublishVendorCafe(
     .replace(/\s+/g, "-");
   const slug = `${baseSlug || "cafe"}-${Math.random().toString(36).slice(2, 6)}`;
 
-  // Automatically generate seats for the venue
-  const count = Math.max(4, Math.min(app.seatsCount || 6, 12));
-  const newSeats: Seat[] = Array.from({ length: count }, (_, i) => {
-    const type = i < 3 ? "Window" : i < 6 ? "Desk" : "Community";
-    return {
-      id: `s${i + 1}`,
-      name: `${type} ${i + 1}`,
-      type,
-      status: "available",
-      x: 15 + (i % 3) * 32,
-      y: 15 + Math.floor(i / 3) * 28,
-    };
-  });
+  // Use the layout the café built on the floor plan, or the default layout
+  const newSeats: Seat[] = app.layoutSeats?.length ? app.layoutSeats : defaultFloorSeats();
+  const count = newSeats.filter((seat) => seat.status === "available").length;
 
   // Assemble new live Cafe record
   const newCafe: Cafe = {
@@ -664,6 +825,8 @@ export async function approveAndPublishVendorCafe(
       y: Math.floor(20 + Math.random() * 60),
     },
     seats: newSeats,
+    ownerPhone: app.contactPhone,
+    ...(app.ownerPinHash ? { ownerPinHash: app.ownerPinHash } : {}),
     reviewsList: [
       {
         id: `r-welcome-${slug}`,

@@ -1,10 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
   CheckCircle2,
   Clock3,
+  Armchair,
   Coffee,
   Crown,
   ExternalLink,
@@ -14,11 +15,18 @@ import {
   Wifi,
   Zap,
 } from "lucide-react";
-import { BookingSummary, PriceBreakdown, SeatGrid, timeSlots } from "@/components/booking-ui";
+import {
+  BookingSummary,
+  PriceBreakdown,
+  SeatGrid,
+  SeatLegendRow,
+  SeatingLegendCard,
+  timeSlots,
+} from "@/components/booking-ui";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { useBooking } from "@/lib/booking-store";
-import { formatDate, getCafe, getCafeImage, isGenericCafeImage, today } from "@/lib/workspot-data";
-import { getLiveCafe } from "@/lib/firebase-service";
+import { formatDate, getCafe, getCafeImage, isGenericCafeImage, timesOverlap, today } from "@/lib/workspot-data";
+import { getLiveCafe, getSeatHolds } from "@/lib/firebase-service";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/cafes/$slug")({
@@ -38,6 +46,8 @@ export const Route = createFileRoute("/cafes/$slug")({
   component: CafeDetail,
 });
 
+const MAX_SEATS = 6;
+
 function CafeDetail() {
   const { slug } = Route.useParams();
   const defaultCafe = getCafe(slug);
@@ -54,13 +64,42 @@ function CafeDetail() {
   const [date, setDate] = useState(selection?.cafeSlug === slug ? selection.date : today());
   const [time, setTime] = useState(selection?.cafeSlug === slug ? selection.time : "10:00");
   const [duration, setDuration] = useState(selection?.cafeSlug === slug ? selection.duration : 2);
-  const [seat, setSeat] = useState(selection?.cafeSlug === slug ? selection.seatId : "");
+  const [seatIds, setSeatIds] = useState<string[]>(
+    selection?.cafeSlug === slug ? (selection.seatIds ?? [selection.seatId]) : []
+  );
 
-  const chosen = cafe.seats.find((s) => s.id === seat);
+  // Seats already booked for an overlapping time on the chosen date show as unavailable
+  const { data: holds = [] } = useQuery({
+    queryKey: ["seat-holds", slug, date],
+    queryFn: () => getSeatHolds(slug, date),
+  });
+  const heldSeatIds = useMemo(
+    () =>
+      new Set(
+        holds.filter((h) => timesOverlap(time, duration, h.time, h.duration)).flatMap((h) => h.seatIds)
+      ),
+    [holds, time, duration]
+  );
+  const pickedIds = seatIds.filter((id) => !heldSeatIds.has(id));
+  const chosenSeats = cafe.seats.filter((s) => pickedIds.includes(s.id));
+  const seatSummary = chosenSeats.map((s) => s.name).join(", ");
+
+  const toggleSeat = (id: string) =>
+    setSeatIds((current) =>
+      current.includes(id) ? current.filter((x) => x !== id) : current.length < MAX_SEATS ? [...current, id] : current
+    );
 
   const continueBooking = () => {
-    if (!seat) return;
-    setSelection({ cafeSlug: slug, date, time, duration, seatId: seat });
+    const [first] = pickedIds;
+    if (!first) return;
+    setSelection({
+      cafeSlug: slug,
+      date,
+      time,
+      duration,
+      seatId: first,
+      ...(pickedIds.length > 1 ? { seatIds: pickedIds } : {}),
+    });
     nav({ to: "/checkout" });
   };
 
@@ -171,19 +210,33 @@ function CafeDetail() {
               <Info icon={<Coffee />} title="What's included" text="Reserved seat, Wi-Fi & workspace access" />
             </div>
             <section className="mt-12">
-              <p className="font-bold uppercase text-primary">Pick your spot</p>
-              <h2 className="mt-2 font-display text-3xl font-bold">Choose a seat</h2>
-              <p className="mt-2 text-muted-foreground">
-                Your selected seat is held while you complete booking.
-              </p>
-              <div className="mt-6">
-                <SeatGrid cafe={cafe} selected={seat} onSelect={(s) => setSeat(s.id)} />
+              <div className="flex items-start gap-3">
+                <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                  <Armchair size={22} />
+                </span>
+                <div>
+                  <h2 className="font-display text-3xl font-bold">Choose a seat</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Tap one or more chairs (up to {MAX_SEATS}) that suit your work style. The layout matches a real café setup.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 rounded-xl border border-border bg-card p-4 shadow-sm">
+                <SeatLegendRow />
+                <div className="mt-4">
+                  <SeatGrid cafe={cafe} selected={pickedIds} onSelect={(s) => toggleSeat(s.id)} heldSeatIds={heldSeatIds} />
+                </div>
               </div>
             </section>
             <section className="mt-10 rounded-xl border border-border bg-card p-5">
-              <h2 className="font-display text-xl font-bold">House rules</h2>
+              <h2 className="flex items-center gap-2 font-display text-xl font-bold">
+                <span className="grid size-9 place-items-center rounded-full bg-primary/10 text-primary">
+                  <Armchair size={17} />
+                </span>
+                Café seating rules
+              </h2>
               <ul className="mt-3 grid gap-2 text-sm text-muted-foreground">
-                <li>• One booking is for one person and the selected seat.</li>
+                <li>• Each chair you select is one person; book several chairs for a group.</li>
                 <li>• Please use headphones for calls and audio.</li>
                 <li>• Outside food is not permitted.</li>
               </ul>
@@ -191,7 +244,7 @@ function CafeDetail() {
           </div>
 
           <aside className="hidden lg:block">
-            <div className="sticky top-24 rounded-xl border-2 border-foreground bg-card p-6 shadow-[8px_8px_0_var(--sky)]">
+            <div className="rounded-xl border-2 border-foreground bg-card p-6 shadow-[8px_8px_0_var(--sky)]">
               <h2 className="font-display text-2xl font-bold">Reserve your seat</h2>
               <label className="mt-5 block text-sm font-bold">
                 Date
@@ -239,17 +292,20 @@ function CafeDetail() {
                   date={formatDate(date)}
                   time={time}
                   duration={duration}
-                  seatName={chosen?.name}
+                  seatName={seatSummary || undefined}
                 />
               </div>
               <PriceBreakdown cafe={cafe} duration={duration} />
-              <Button onClick={continueBooking} disabled={!seat} className="mt-5 w-full font-bold">
+              <Button onClick={continueBooking} disabled={pickedIds.length === 0} className="mt-5 w-full font-bold">
                 Reserve seat (Pay at café)
               </Button>
               <p className="mt-3 flex justify-center gap-1 text-xs text-muted-foreground">
                 <ShieldCheck size={14} />
                 Free reservation · Pay on arrival
               </p>
+            </div>
+            <div className="mt-6">
+              <SeatingLegendCard />
             </div>
           </aside>
         </div>
@@ -260,10 +316,10 @@ function CafeDetail() {
           <div className="min-w-0">
             <p className="font-bold">{cafe.name}</p>
             <p className="truncate text-xs text-muted-foreground">
-              {chosen ? `${chosen.name} · ${time} IST` : "Select a seat above"}
+              {seatSummary ? `${seatSummary} · ${time} IST` : "Select a seat above"}
             </p>
           </div>
-          <Button disabled={!seat} onClick={continueBooking} className="font-bold">
+          <Button disabled={pickedIds.length === 0} onClick={continueBooking} className="font-bold">
             Reserve
           </Button>
         </div>

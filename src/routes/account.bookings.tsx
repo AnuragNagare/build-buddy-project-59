@@ -127,7 +127,7 @@ function Bookings() {
                     <CalendarDays className="mr-1 inline text-primary" size={15} />
                     {formatDate(b.date)} · {b.time} IST · {b.duration}h
                   </p>
-                  <p className="text-sm text-muted-foreground">{seat?.name || "Reserved seat"}</p>
+                  <p className="text-sm text-muted-foreground">{b.seatName || seat?.name || "Reserved seat"}</p>
                 </div>
                 <div className="flex items-start gap-2 sm:flex-col">
                   <ButtonLink to="/booking/$id/confirmed" params={{ id: b.id }} variant="secondary">

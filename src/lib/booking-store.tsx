@@ -5,6 +5,7 @@ import {
   getLiveUserBookings,
   createBookingWithConcurrencyCheck,
   cancelLiveBooking,
+  notifyCafeOfBooking,
 } from "./firebase-service";
 
 type BookingContextValue = {
@@ -89,11 +90,23 @@ export function BookingProvider({ children }: { children: ReactNode }) {
       return next;
     });
 
+    // Partner cafés get an in-app alert; a failed alert must never fail the booking itself
+    notifyCafeOfBooking(
+      { ...booking, userPhone: user?.phoneNumber ?? booking.userPhone ?? "" },
+      "booking_created"
+    ).catch((err) => console.warn("Could not notify café of booking:", err));
+
     return { success: true };
   };
 
   const cancelBooking = async (id: string): Promise<boolean> => {
     await cancelLiveBooking(id);
+    const cancelled = bookings.find((b) => b.id === id);
+    if (cancelled) {
+      notifyCafeOfBooking(cancelled, "booking_cancelled").catch((err) =>
+        console.warn("Could not notify café of cancellation:", err)
+      );
+    }
 
     setBookings((current) => {
       const next = current.map((booking) =>

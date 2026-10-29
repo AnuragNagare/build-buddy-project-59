@@ -24,7 +24,7 @@ function Confirmed() {
   const b = bookings.find((x) => x.id === id);
   const cafe = getCafe(b?.cafeSlug ?? "subko-coffee-bandra");
   const seat = cafe.seats.find((s) => s.id === b?.seatId);
-  const totalAmount = (cafe.price || 149) * (b?.duration || 2);
+  const totalAmount = b?.totalPrice ?? (cafe.price || 149) * (b?.duration || 2);
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-14 text-center">
@@ -60,7 +60,7 @@ function Confirmed() {
                 {b ? formatDate(b.date) : "Today"} · {b?.time ?? "10:00"} IST
               </p>
               <p className="text-sm text-muted-foreground">
-                {b?.duration ?? 2} hours · {seat?.name ?? "Window 1"}
+                {b?.duration ?? 2} hours · {b?.seatName ?? seat?.name ?? "Reserved seat"}
               </p>
             </div>
             <QR />

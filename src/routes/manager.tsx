@@ -1,8 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Armchair,
   BarChart3,
+  Bell,
+  LogOut,
   CalendarDays,
   Check,
   CheckCircle2,
@@ -22,12 +25,17 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cafes, getCafe, type Cafe, type PendingReviewSubmission } from "@/lib/workspot-data";
+import { FloorPlanEditor } from "@/components/floor-plan-editor";
+import { useOwnerAuth } from "@/lib/owner-auth-store";
+import { cafes, formatDate, getCafe, type Cafe, type CafeNotification, type PendingReviewSubmission, type Seat } from "@/lib/workspot-data";
 import { cn } from "@/lib/utils";
 import {
   getLiveCafes,
   submitVendorReviewForApproval,
   getPendingReviewsForCafe,
+  getNotificationsForCafe,
+  markNotificationsRead,
+  upsertCafeAdmin,
 } from "@/lib/firebase-service";
 
 export const Route = createFileRoute("/manager")({
@@ -43,18 +51,88 @@ export const Route = createFileRoute("/manager")({
   component: Manager,
 });
 
-type Tab = "Overview" | "Bookings" | "Venue" | "Seats & availability" | "Reviews & Reputation";
+type Tab = "Overview" | "Bookings" | "Notifications" | "Venue" | "Seats & availability" | "Reviews & Reputation";
 
 function Manager() {
+  const { owner, loading, logout } = useOwnerAuth();
+  if (loading) return <div className="min-h-[60vh]" />;
+  if (!owner) return <OwnerLogin />;
+  return <ManagerDashboard key={owner.cafeSlug} cafeSlug={owner.cafeSlug} onLogout={logout} />;
+}
+
+function OwnerLogin() {
+  const { login } = useOwnerAuth();
+  const [phone, setPhone] = useState("");
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    const result = await login(phone, pin);
+    setBusy(false);
+    if (!result.success) setError(result.error ?? "Could not sign in.");
+  };
+
+  return (
+    <div className="mx-auto grid min-h-[70vh] max-w-md place-items-center px-5 py-12">
+      <form onSubmit={submit} className="w-full rounded-2xl border-2 border-foreground bg-card p-8 shadow-[8px_8px_0_var(--sky)]">
+        <p className="text-xs font-extrabold uppercase tracking-wider text-primary">Café owner sign-in</p>
+        <h1 className="mt-2 font-display text-3xl font-bold">Manage your café</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Use the phone number and 4-digit PIN from your partner registration.
+        </p>
+        <label className="mt-6 block text-sm font-bold">
+          Phone number
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+91 98200 12345"
+            className="mt-2 min-h-12 w-full rounded-lg border-2 border-border bg-background px-4 outline-none focus:border-primary"
+          />
+        </label>
+        <label className="mt-4 block text-sm font-bold">
+          PIN
+          <input
+            type="password"
+            inputMode="numeric"
+            maxLength={6}
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+            className="mt-2 min-h-12 w-full rounded-lg border-2 border-border bg-background px-4 tracking-widest outline-none focus:border-primary"
+          />
+        </label>
+        {error && <p className="mt-3 text-sm font-semibold text-destructive">{error}</p>}
+        <Button type="submit" disabled={busy} className="mt-6 w-full font-bold">
+          {busy ? "Signing in…" : "Sign in"}
+        </Button>
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          Not a partner yet?{" "}
+          <Link to="/partner/register" className="font-bold text-primary underline">
+            Register your café
+          </Link>
+        </p>
+      </form>
+    </div>
+  );
+}
+
+function ManagerDashboard({ cafeSlug, onLogout }: { cafeSlug: string; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>("Overview");
-  const [cafeSlug, setCafeSlug] = useState<string>("subko-coffee-bandra");
-  const [currentCafe, setCurrentCafe] = useState<Cafe>(getCafe("subko-coffee-bandra"));
+  const [currentCafe, setCurrentCafe] = useState<Cafe>(getCafe(cafeSlug));
+  const queryClient = useQueryClient();
+  const { data: notifications = [] } = useQuery({
+    queryKey: ["notifications", cafeSlug],
+    queryFn: () => getNotificationsForCafe(cafeSlug),
+    refetchInterval: 8000,
+  });
+  const unread = notifications.filter((n) => !n.read);
   const [tier, setTier] = useState<"free" | "pro">("pro"); // Demo default to Pro so reviews curation is immediately testable
 
-  const [seats, setSeats] = useState(
-    (currentCafe?.seats ?? []).map((s) => ({ ...s, active: s.status !== "not-offered" }))
-  );
-  const [modal, setModal] = useState(false);
+  const [seats, setSeats] = useState<Seat[]>(currentCafe?.seats ?? []);
   const [checked, setChecked] = useState<string[]>([]);
 
   // Load live cafe data if available
@@ -66,7 +144,7 @@ function Manager() {
       if (found) {
         setCurrentCafe(found);
         if (found.tier) setTier(found.tier);
-        setSeats((found.seats ?? []).map((s) => ({ ...s, active: s.status !== "not-offered" })));
+        setSeats(found.seats ?? []);
       }
     });
     return () => {
@@ -77,6 +155,7 @@ function Manager() {
   const nav: [Tab, typeof LayoutDashboard][] = [
     ["Overview", LayoutDashboard],
     ["Bookings", CalendarDays],
+    ["Notifications", Bell],
     ["Venue", MapPin],
     ["Seats & availability", Armchair],
     ["Reviews & Reputation", MessageSquare],
@@ -133,6 +212,11 @@ function Manager() {
                   <Icon size={17} />
                   {name}
                 </span>
+                {name === "Notifications" && unread.length > 0 && (
+                  <span className="rounded-full bg-coral px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
+                    {unread.length}
+                  </span>
+                )}
                 {name === "Reviews & Reputation" && (
                   <span className="rounded-full bg-amber-400/20 px-1.5 py-0.5 text-[10px] text-amber-300">
                     Pro
@@ -141,6 +225,14 @@ function Manager() {
               </button>
             ))}
           </nav>
+
+          <button
+            type="button"
+            onClick={onLogout}
+            className="mt-6 flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3.5 text-xs font-bold text-primary-foreground/70 hover:bg-primary-foreground/10"
+          >
+            <LogOut size={17} /> Sign out
+          </button>
 
           <div className="mt-8 hidden rounded-xl border border-primary-foreground/10 bg-primary-foreground/5 p-3.5 text-xs lg:block">
             <p className="font-bold text-primary-foreground">Super Admin Link</p>
@@ -185,9 +277,18 @@ function Manager() {
 
           {tab === "Overview" && <Overview checked={checked.length} />}
           {tab === "Bookings" && <Bookings checked={checked} setChecked={setChecked} />}
+          {tab === "Notifications" && (
+            <NotificationsTab
+              notifications={notifications}
+              onRead={async (ids) => {
+                await markNotificationsRead(ids);
+                await queryClient.invalidateQueries({ queryKey: ["notifications", cafeSlug] });
+              }}
+            />
+          )}
           {tab === "Venue" && <Venue cafe={currentCafe} />}
           {tab === "Seats & availability" && (
-            <Seats seats={seats} setSeats={setSeats} setModal={setModal} />
+            <Seats cafe={currentCafe} seats={seats} setSeats={setSeats} onSaved={setCurrentCafe} />
           )}
           {tab === "Reviews & Reputation" && (
             <ReviewsReputationTab
@@ -199,57 +300,6 @@ function Manager() {
         </main>
       </div>
 
-      {/* Add Seat Modal */}
-      {modal && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/50 p-4">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              setSeats((s) => [
-                ...s,
-                {
-                  id: `s${s.length + 1}`,
-                  name: `Desk ${s.length + 1}`,
-                  type: "Desk",
-                  status: "available",
-                  x: 30,
-                  y: 30,
-                  active: true,
-                },
-              ]);
-              setModal(false);
-            }}
-            className="w-full max-w-md rounded-xl bg-card p-6 shadow-2xl border border-border"
-          >
-            <div className="flex justify-between">
-              <h2 className="font-display text-2xl font-bold">Add a seat</h2>
-              <button type="button" aria-label="Close" onClick={() => setModal(false)}>
-                <X />
-              </button>
-            </div>
-            <label className="mt-6 block text-sm font-bold">
-              Seat name
-              <input
-                required
-                defaultValue={`Desk ${seats.length + 1}`}
-                className="mt-2 min-h-12 w-full rounded-lg border border-border px-4"
-              />
-            </label>
-            <label className="mt-4 block text-sm font-bold">
-              Seat type
-              <select className="mt-2 min-h-12 w-full rounded-lg border border-border px-4">
-                <option>Desk</option>
-                <option>Window</option>
-                <option>Community</option>
-              </select>
-            </label>
-            <Button className="mt-6 w-full" type="submit">
-              <Plus size={17} />
-              Add seat
-            </Button>
-          </form>
-        </div>
-      )}
     </div>
   );
 }
@@ -392,75 +442,70 @@ function Venue({ cafe }: { cafe?: Cafe }) {
 }
 
 function Seats({
+  cafe,
   seats,
   setSeats,
-  setModal,
+  onSaved,
 }: {
-  seats: (typeof cafes)[number]["seats"][number][] & { active?: boolean }[];
-  setSeats: React.Dispatch<React.SetStateAction<any[]>>;
-  setModal: (v: boolean) => void;
+  cafe: Cafe;
+  seats: Seat[];
+  setSeats: (seats: Seat[]) => void;
+  onSaved: (cafe: Cafe) => void;
 }) {
-  const [price, setPrice] = useState(149);
+  const [price, setPrice] = useState(cafe.price || 149);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const offered = seats.filter((s) => s.status === "available").length;
+
+  const saveLayout = async () => {
+    if (offered === 0) {
+      setMessage("Offer at least one seat before saving.");
+      return;
+    }
+    setBusy(true);
+    const updated: Cafe = { ...cafe, seats, availability: `${offered} seats open` };
+    await upsertCafeAdmin(updated);
+    onSaved(updated);
+    setBusy(false);
+    setMessage("Seat layout saved. Customers see it straight away.");
+  };
+
   return (
-    <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_360px]">
+    <div className="mt-8 space-y-6">
       <section className="rounded-xl border border-border bg-background p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-xl font-bold">Seats</h2>
-          <Button onClick={() => setModal(true)}>
-            <Plus size={16} />
-            Add seat
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-display text-xl font-bold">Seat layout</h2>
+            <p className="text-xs text-muted-foreground">
+              Match the floor plan to your café: add, remove, move or switch off chairs.
+            </p>
+          </div>
+          <Button onClick={saveLayout} disabled={busy}>
+            <Save size={16} />
+            {busy ? "Saving…" : "Save layout"}
           </Button>
         </div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          {seats.map((s: any) => (
-            <div
-              key={s.id}
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-border p-3"
-            >
-              <div className="min-w-0">
-                <p className="truncate font-bold">{s.name}</p>
-                <p className="text-xs text-muted-foreground">{s.type}</p>
-              </div>
-              <button
-                aria-label={`Toggle ${s.name}`}
-                onClick={() =>
-                  setSeats((v: any[]) =>
-                    v.map((x) => (x.id === s.id ? { ...x, active: !x.active } : x))
-                  )
-                }
-                className={cn(
-                  "h-7 w-12 rounded-full p-1 transition-colors",
-                  s.active ? "bg-available" : "bg-muted"
-                )}
-              >
-                <span
-                  className={cn(
-                    "block size-5 rounded-full bg-card transition-transform",
-                    s.active && "translate-x-5"
-                  )}
-                />
-              </button>
-            </div>
-          ))}
+        {message && <p className="mt-3 text-sm font-semibold text-primary">{message}</p>}
+        <div className="mt-5">
+          <FloorPlanEditor
+            seats={seats}
+            onChange={(next) => {
+              setMessage(null);
+              setSeats(next);
+            }}
+          />
         </div>
       </section>
-      <section className="rounded-xl border border-border bg-background p-5">
+      <section className="max-w-md rounded-xl border border-border bg-background p-5">
         <h2 className="font-display text-xl font-bold">Availability</h2>
         <label className="mt-5 block text-sm font-bold">
           Off-peak start
-          <input
-            type="time"
-            defaultValue="10:00"
-            className="mt-2 min-h-11 w-full rounded-lg border border-border px-3"
-          />
+          <input type="time" defaultValue="10:00" className="mt-2 min-h-11 w-full rounded-lg border border-border px-3" />
         </label>
         <label className="mt-5 block text-sm font-bold">
           Off-peak end
-          <input
-            type="time"
-            defaultValue="17:00"
-            className="mt-2 min-h-11 w-full rounded-lg border border-border px-3"
-          />
+          <input type="time" defaultValue="17:00" className="mt-2 min-h-11 w-full rounded-lg border border-border px-3" />
         </label>
         <label className="mt-5 block text-sm font-bold">
           Hourly price <span className="float-right text-primary">₹{price}</span>
@@ -478,6 +523,65 @@ function Seats({
           Update availability
         </Button>
       </section>
+    </div>
+  );
+}
+
+function NotificationsTab({
+  notifications,
+  onRead,
+}: {
+  notifications: CafeNotification[];
+  onRead: (ids: string[]) => Promise<void>;
+}) {
+  const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
+  return (
+    <div className="mt-8 max-w-3xl">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {unreadIds.length ? `${unreadIds.length} new` : "You are all caught up"} · refreshes automatically
+        </p>
+        <Button variant="secondary" disabled={unreadIds.length === 0} onClick={() => onRead(unreadIds)}>
+          <Check size={16} /> Mark all read
+        </Button>
+      </div>
+      <div className="mt-5 space-y-3">
+        {notifications.length === 0 && (
+          <div className="rounded-xl border-2 border-dashed border-border py-14 text-center">
+            <Bell className="mx-auto text-muted-foreground" />
+            <p className="mt-3 font-display text-lg font-bold">No booking alerts yet</p>
+            <p className="mt-1 text-sm text-muted-foreground">New and cancelled reservations show up here.</p>
+          </div>
+        )}
+        {notifications.map((n) => (
+          <article
+            key={n.id}
+            className={cn(
+              "rounded-xl border p-4",
+              n.read ? "border-border bg-card" : "border-primary/40 bg-primary/5"
+            )}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span
+                className={cn(
+                  "rounded-full px-2.5 py-0.5 text-xs font-bold",
+                  n.type === "booking_created" ? "bg-available/25 text-available-foreground" : "bg-coral/20 text-coral-deep"
+                )}
+              >
+                {n.type === "booking_created" ? "New booking" : "Booking cancelled"}
+              </span>
+              <time className="text-xs text-muted-foreground">{new Date(n.createdAt).toLocaleString("en-IN")}</time>
+            </div>
+            <p className="mt-2 font-bold">
+              {n.seatName} · {formatDate(n.date)} · {n.time} IST · {n.duration}h
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Ref {n.bookingId}
+              {n.guestPhone ? ` · Guest ${n.guestPhone}` : ""}
+            </p>
+          </article>
+        ))}
+      </div>
     </div>
   );
 }

@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "../lib/auth-store";
 import { AdminAuthProvider } from "../lib/admin-auth-store";
+import { OwnerAuthProvider } from "../lib/owner-auth-store";
 import { BookingProvider } from "../lib/booking-store";
 import { AppShell } from "../components/workspot-shell";
 
@@ -129,12 +130,14 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <AdminAuthProvider>
-          <BookingProvider>
-            <AppShell>
-              <Outlet />
-            </AppShell>
-            <div id="recaptcha-container" />
-          </BookingProvider>
+          <OwnerAuthProvider>
+            <BookingProvider>
+              <AppShell>
+                <Outlet />
+              </AppShell>
+              <div id="recaptcha-container" />
+            </BookingProvider>
+          </OwnerAuthProvider>
         </AdminAuthProvider>
       </AuthProvider>
     </QueryClientProvider>
